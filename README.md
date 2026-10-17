@@ -54,6 +54,7 @@ Meta 用 Confidential VM / Private processing 把用户自己采集的数据锁�
 ├── README.md                                    本文件
 └── docs/
     ├── architecture-v1.md                       执行蓝图 v1（分层、触发策略、协议通道、升级矩阵、数据流示例）
+    ├── architecture-viz.html                     可视化蓝图（单文件 HTML，浏览器打开：分层架构 / 系统闭环流程图 / 触发策略 / 协议通道 / 升级矩阵）
     └── background/
         └── 人类数据交易体系资产包/                背景参考：远期愿景（确权→定价→交易），不指导执行
             ├── 01-体系蓝图与分析模型.md
