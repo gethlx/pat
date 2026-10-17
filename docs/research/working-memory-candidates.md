@@ -170,8 +170,8 @@ f) License 对私密项目是否友好
 
 | 档位 | 候选 | 一句话理由 |
 |---|---|---|
-| **首选** | **po4erk91/thread-keeper** | MIT 最干净；thread 作用域 + retention 旋钮 + agent 间 signaling 全现成；314 commits 且昨天还在提交——"开箱即用度 × License × 活跃度"综合最高；代价是附带 learning-loop 平台（可关）+ 单人维护 |
-| 备选 1 | alex-feel/mcp-context-server | 最薄、最字面贴合"thread 共享上下文"；补 TTL+409 改动量最小；但 Elastic 2.0（变现需商业许可）+ 无 TTL + 仅 5 周历史且疑似迁移 |
+| **首选** | **po4erk91/thread-keeper** | 开箱最完整：thread 作用域 + retention 旋钮（配一下即得 TTL）+ agent 间 signaling 全现成；314 commits 且昨天还在提交。代价是附带 learning-loop 平台（启用时先关）+ 单人维护。注：此前因 MIT 加过权重，现按用户要求剔除 license 因素——首选理由是开箱完整度与活跃度，与 license 无关 |
+| 备选 1 | alex-feel/mcp-context-server | 全场最薄、最字面贴合"thread 共享上下文"；补 TTL+409 改动量最小（约 1–2 天）；但无 TTL 现货 + 仅 5 周历史且疑似迁移。Elastic 2.0 对个人自用无碍 |
 | 备选 2 | mathomhaus/guild | Apache-2.0 + 301★；三种生命周期写表面是全场最优雅的 TTL 设计；但 quest 隐喻偏 coding agent，通用化改造成本中 |
 | 设计参考（只偷思想） | waggle + agentrq Pano + Orbital 四件套 | waggle 的 attributed token 是"存指针不存本体"的标准答案；agentrq Pano 的"乐观 409 + 30 天 TTL"与需求同构；Orbital 的四件套 schema/强制闭环/append-only 日志/确定性 demote/prefix-cache 分层可直接借鉴；三者都不引入（waggle stale、agentrq AGPL 整平台、Orbital GPL-3.0 太重） |
 | 不推荐 | anulum/synapse-channel | AGPL + 方向错配（coding agent 舰队协调总线）+ 社区信号极弱（1★） |
@@ -180,8 +180,9 @@ f) License 对私密项目是否友好
 **关键风险再提示**：
 1. Bus factor：除 agentrq 有公司主体外，其余全单人维护；首选 thread-keeper 也是单人。
 2. 首选的功能包袱：thread-keeper 的 learning loops 默认开启，启用时必须先关，否则"薄层"变"平台"。
-3. License 与变现 thesis 挂钩：MIT（thread-keeper）/ Apache-2.0（guild）未来变现无障碍；Elastic 2.0（alex-feel）变现需商业许可——若 thesis 走向"记忆层变现"，首选的 MIT 是加分项。
+3. License 权重说明（2026-10-17 用户纠正）：**选型阶段不为 license 加权**。当前只是个人先用，Elastic 2.0/AGPL/GPL 对私密自用均无碍；**真正商业化时工作记忆层一定自研一套**。因此 license 只在"未来变现需重写/买商业许可"的风险提示里出现一次，不进入排序权重。排序只看：开箱贴合度、改动成本、维护活跃度。
 4. waggle 的 stale 警示：646★ 也会停更，**选型看 commit 曲线不看星数**。
+5. 长期策略（用户定调）：先用现成候选跑起来（个人用）→ 商业化时自研。因此"设计参考"档（waggle 的 attributed token、agentrq 的 409+TTL、Orbital 的四件套/闭环/日志/demote）的重要性不低于候选本身——它们是未来自研的设计输入，现在就开始积累。
 
 ---
 
