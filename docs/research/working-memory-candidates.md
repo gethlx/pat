@@ -103,3 +103,86 @@ f) License 对私密项目是否友好
 ---
 
 **调研结论，待用户与其他 Agent 联合评估后定夺。**（本报告只做调研与候选比对，未做任何启用/安装/采购动作。）
+
+---
+
+# 第二轮深度调研（2026-10-17）：Orbital 设计参考 + 漏网候选 + "改"而非"换"
+
+## 一、Orbital 可借鉴的设计点（zqiren/Orbital，886★，GPL-3.0，桌面端项目 Agent）
+
+定性：**不列入候选**——它是给本地 coding agent 用的编排平台（daemon、浏览器 profile、凭证管理），不是薄 MCP 记忆服务。但上下文工程有 5 条可直接偷：
+
+1. **四件套上下文 schema**（PROJECT_STATE.md / DECISIONS.md / LESSONS.md / INDEX.md，每件带 token 上限）：工作记忆的 thread 命名空间固定这四个槽位（现状/决策/经验/导航），agent 按类型写入，不再是一个不透明大 JSON；读取时按需取槽位，省 token。
+2. **强制 Completed/Blocked 闭环**（queue.json：每项任务必须有 verdict，不许无声消失；Blocked 必须带 reason）：工作记忆的任务账本每条目强制终态；agent stall/crash 时由 janitor 按心跳超时强制标 Blocked + reason，杜绝悬空任务。
+3. **Append-only 事件日志**（sessions/{id}.jsonl，file lock，只在 compaction 时可改）：工作记忆的写入走 append-only 日志（who/when/key），读走最新快照；天然审计 + lineage，直接支撑确权 thesis 的"谁干的"举证。
+4. **确定性 compaction/demote**（token cap 触发 oldest-cold → ARCHIVE 按需读；STATE 是覆盖式便签不是 changelog；LESSONS 永不 word-trim；compaction 是确定性规则、不调 LLM）：TTL 之外加第二条纪律——thread 记忆超预算时确定性 demote 冷条目到归档（可按需读回），不让 LLM 自己决定删什么；可预测、省钱。
+5. **Prefix-cache 友好的分层结构**（system prompt 拆 static/semi-stable/dynamic 三段，~95% prefix cache 命中）：工作记忆 payload 排序——稳定部分（任务目标、原则）在前、动态部分在后；多 agent 轮流读取时 provider prefix cache 命中率高，直接省 token 成本。
+
+## 二、新候选硬数据 + 贴合度（2026-10-17 核验）
+
+### 候选 A：po4erk91/thread-keeper（本轮最大发现）
+
+- stars/forks：13/4；License：**MIT**（实读）；最新 commit：2026-10-16；近 90 天非常活跃（314 commits 累计，37 releases）
+- 宣称"多 agent 共享 brain，thread 作用域"**属实**（one set of threads, one SQLite store）；跨 CLI signaling（broadcast/whisper/inbox/wait/ask/respond）属实
+- retention 是按表配置的旋钮（`THREADKEEPER_TASK_RETENTION_DAYS=30` 默认，`DIALOG/SIGNAL/EVENTS` 默认 keep-forever 需手动开）+ thread-janitor（idle 30 天自动关）；**无记录级乐观 409**（靠 DB WAL）
+- 包袱：附带整套 skill/learning-loop 平台（可关）；bus factor：单人（po4erk91）
+- 贴合度：任务作用域**贴合**；轻量自托管**部分贴合**（SQLite 零配置是优点，平台包袱是缺点）；MCP 原生**贴合**；并发**部分贴合**；TTL**部分贴合**（旋钮现成，需配）；License **贴合（MIT 最干净）**
+
+### 候选 B：mathomhaus/guild
+
+- stars/forks：301/46；License：**Apache-2.0**（实读）；最新 commit：2026-10-10；近 90 天活跃但放缓
+- **三种写表面对应三种生命周期**是全场最优雅的 TTL 设计：`quest_journal`（本 quest 的 scratchpad，quest 清除即消亡=天然 TTL）、`lore_inscribe`（按 kind 自动过期：research 30 天、decision 180 天）、`quest_brief`（session 交接）
+- 并发是 atomic claim（锁语义），不是乐观 409；quest 隐喻偏 coding agent，通用化需改造；bus factor：单人
+- 贴合度：任务作用域**贴合**；MCP 原生**贴合**；TTL**贴合**（最优雅）；并发**部分贴合**；License **贴合**
+
+### 候选 C：modiqo/waggle（设计参考级，只偷思想不引入）
+
+- stars/forks：646/70；License：Apache-2.0（另有 MIT 双许可）；**最新 commit 2026-07-20，已 stale 近 3 个月**
+- 它不是工作记忆 store，而是**引用层**：~30 字节的 attributed token（Ed25519 签名、content-addressed 不可变快照、supersede/revoke 带 lineage、按消费者给不同 projection、读计数审计、payload-free append-only 日志）——正是我们"存指针不存本体"的工业级实现
+- 但无 thread scratchpad、无 TTL，且已 stale → **只偷设计，不引入**
+
+### 本轮排除的
+
+- `AllenMaxi/ContextGraph`（22★）：实质 demo 级，信号太弱
+- `pc035860/scratchpad-mcp`（5★）：周末项目量级，无 retention/TTL 设计
+- `parcadei/Continuous-Claude-v3`（3946★）：单 agent session 管理，非多 agent 共享
+- `genpark-blackboard`（7★）：仍太新
+
+## 三、"改"而非"换"：最小改动清单
+
+### A. alex-feel/mcp-context-server（改动量最小）
+
+- **补 TTL（小，约 1–2 天）**：models/schemas 加 `expires_at` + migration；读路径 lazy 过滤过期；`store_context` 加 `ttl_seconds` 参数；thread 关闭钩子删 thread
+- **补乐观 409（小–中）**：加 `version` 整数列；写路径接受 `expected_version` 不匹配抛错；`errors.py` 新增 `VersionConflict` 映射 MCP 错误
+- License：Elastic 2.0 允许修改、私密自用；**禁止**托管服务给第三方；未来 SaaS 变现需买商业许可或重写
+
+### B. thread-keeper（配置级，几乎零代码）
+
+- 已有 `THREADKEEPER_*_RETENTION_DAYS` 旋钮 + retention daemon + thread-janitor：把默认 keep-forever 改成任务型默认值即得 TTL
+- 关掉 learning loops/curator/evolve daemons，只留 thread + signaling + retention
+- 补 409 需加 version 列（小改动）；**MIT：随便改、自用商用变现全 OK**
+
+### C. guild（改造成本中，从略）
+
+- 加通用 scratch kind（默认 7 天）属中等改动；但把 atomic claim 改成乐观 409 会动核心语义；Apache-2.0 完全自由
+
+## 四、合并两轮的最终候选排序
+
+| 档位 | 候选 | 一句话理由 |
+|---|---|---|
+| **首选** | **po4erk91/thread-keeper** | MIT 最干净；thread 作用域 + retention 旋钮 + agent 间 signaling 全现成；314 commits 且昨天还在提交——"开箱即用度 × License × 活跃度"综合最高；代价是附带 learning-loop 平台（可关）+ 单人维护 |
+| 备选 1 | alex-feel/mcp-context-server | 最薄、最字面贴合"thread 共享上下文"；补 TTL+409 改动量最小；但 Elastic 2.0（变现需商业许可）+ 无 TTL + 仅 5 周历史且疑似迁移 |
+| 备选 2 | mathomhaus/guild | Apache-2.0 + 301★；三种生命周期写表面是全场最优雅的 TTL 设计；但 quest 隐喻偏 coding agent，通用化改造成本中 |
+| 设计参考（只偷思想） | waggle + agentrq Pano + Orbital 四件套 | waggle 的 attributed token 是"存指针不存本体"的标准答案；agentrq Pano 的"乐观 409 + 30 天 TTL"与需求同构；Orbital 的四件套 schema/强制闭环/append-only 日志/确定性 demote/prefix-cache 分层可直接借鉴；三者都不引入（waggle stale、agentrq AGPL 整平台、Orbital GPL-3.0 太重） |
+| 不推荐 | anulum/synapse-channel | AGPL + 方向错配（coding agent 舰队协调总线）+ 社区信号极弱（1★） |
+| 对照（长期记忆） | RMANOV/sqlite-memory-mcp | MIT 最干净但场景是长期记忆知识图谱，与工作记忆错位；留作记忆侧对照 |
+
+**关键风险再提示**：
+1. Bus factor：除 agentrq 有公司主体外，其余全单人维护；首选 thread-keeper 也是单人。
+2. 首选的功能包袱：thread-keeper 的 learning loops 默认开启，启用时必须先关，否则"薄层"变"平台"。
+3. License 与变现 thesis 挂钩：MIT（thread-keeper）/ Apache-2.0（guild）未来变现无障碍；Elastic 2.0（alex-feel）变现需商业许可——若 thesis 走向"记忆层变现"，首选的 MIT 是加分项。
+4. waggle 的 stale 警示：646★ 也会停更，**选型看 commit 曲线不看星数**。
+
+---
+
+**调研结论，待用户与其他 Agent 联合评估后定夺。**（两轮报告只做调研与候选比对，未做任何启用/安装/采购动作。）
