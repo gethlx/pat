@@ -34,3 +34,11 @@ Thumbs.db
 .env.*
 secrets/
 credentials.json
+
+# Data assets — raw captures & personal data exports never belong in git
+# （规则见 AGENTS.md「禁止入仓清单」：数据归数据层存储，不归 git）
+*.mp4
+*.mov
+*.mkv
+data-exports/
+raw-captures/
