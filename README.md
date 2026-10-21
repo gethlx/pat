@@ -68,7 +68,7 @@ Meta 用 Confidential VM / Private processing 把用户自己采集的数据锁�
 │   ├── architecture-viz.html                    可视化蓝图（单文件 HTML，浏览器打开）
 │   ├── hermes-adjustments.md                    VPS 云端节点（Hermes）需求核对与调整清单
 │   ├── design-harvest.md                        设计采收册（跨项目可迁移设计与教训，长期跟进）
-│   ├── background/人类数据交易体系资产包/        背景参考：远期愿景（确权→定价→交易），不指导执行
+│   ├── background/human-data-assets/        背景参考：远期愿景（确权→定价→交易），不指导执行
 │   └── research/working-memory-candidates.md    工作记忆层候选调研
 ├── memory/                                      共享记忆线区
 │   └── README.md                                立区说明与同步指引（内容由共享记忆线同步）
