@@ -95,7 +95,7 @@ Meta 用 Confidential VM / Private processing 把用户自己采集的数据锁�
 
 - 上游灵感：[facebookincubator/muse-gadget-sdk](https://github.com/facebookincubator/muse-gadget-sdk)（Apache 2.0，仅作 Demo 期 adapter 用）
 - 知识层独立仓：`gethlx/llm-wiki`（共享记忆线的 LLM Wiki 本体，多智能体共同治理）
-- 本仓库为私密项目，暂不公开。
+- 本仓库为内部工作仓，不整体转公开；未来的开源内容将另建公开仓精选发布（见 `AGENTS.md`「可见性与公开策略」）。
 
 ## License
 
