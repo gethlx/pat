@@ -84,7 +84,7 @@ Meta 用 Confidential VM / Private processing 把用户自己采集的数据锁�
 - [x] 架构 v1 定稿（2026-10-17）
 - [x] 仓库双线分区建立（2026-10-21）：platform / memory / contracts，维护规范见 `AGENTS.md`
 - [x] VPS 云端节点选型完成（2026-10-21）：开源 Agent 结论为 Hermes，需求核对与调整清单见 `platform/hermes-adjustments.md`
-- [ ] VPS 云端节点部署开跑（Hermes）——配置方案已成文（`platform/hermes-config-spec.md`），待多智能体评审与用户指令
+- [ ] VPS 云端节点部署开跑（Hermes）——配置方案已通过四方评审并修订（`platform/hermes-config-spec.md`），待执行前置与用户指令
 - [ ] VPS 云端节点部署开跑（Hermes，按调整清单推进）——待用户指令
 - [ ] 共享记忆线内容首次同步入 `memory/` 区——由其专属对话线程按规范执行
 - [ ] **蓝图眼前第一步：Muse 接入 Demo 跑通**（adapter 模式，验证全流程与体验——见 `platform/architecture-v1.md`「协议与通道」）

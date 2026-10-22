@@ -74,7 +74,7 @@
   - 不进数据层——数据层只增不改、重、持久；工作记忆是任务的便签纸，轻、短命。
 - 特性：任务作用域（thread / workflow ID）、TTL（任务结束 + 宽限期后过期）、小载荷、乐观并发（写冲突返回 409 让后写者重读再写，不用锁——Agent 会 stall/crash，锁会被死 Agent 永远占住）。
 - 位置：边缘/云端的小服务，**不在 ESP32 上**；各 Agent 经自己的 adapter 以 MCP 工具形式读写。
-- 实现：候选方案调研中（见 `docs/research/working-memory-candidates.md`），**未启用**。
+- 实现：候选方案调研中（见 `platform/research/working-memory-candidates.md`），**未启用**。
 
 ### 输出层
 
@@ -146,4 +146,4 @@
 - 具体产品选型：用户明确**不急采购**，本架构只给举例。
 - 打扰策略：留待以后展开。
 - "玩 vs 占位"的最终投入比例：用户未定。
-- 工作记忆层具体实现：候选调研中（`docs/research/working-memory-candidates.md`），未启用。
+- 工作记忆层具体实现：候选调研中（`platform/research/working-memory-candidates.md`），未启用。
