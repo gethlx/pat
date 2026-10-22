@@ -13,6 +13,7 @@
 | `architecture-v1.md` | **唯一执行蓝图**（分层、触发策略、协议通道、升级矩阵、Demo 清单） | 定稿（2026-10-17） |
 | `architecture-viz.html` | 蓝图可视化（单文件 HTML，浏览器打开：分层架构 / 系统闭环 / 触发策略 / 协议通道 / 升级矩阵） | 与蓝图同步 |
 | `hermes-adjustments.md` | VPS 云端节点（Hermes）与 PAT 需求的逐条核对及调整清单 | 定稿（2026-10-21），部署开跑待用户指令 |
+| `hermes-config-spec.md` | Hermes 节点配置方案（配置↔需求映射、设计理念、调研依据） | 待评审（2026-10-22） |
 | `design-harvest.md` | 设计采收册：历次调研的可迁移设计与反面教训（长期跟进，升级迭代时逐条回看） | 持续追加 |
 | `background/human-data-assets/` | 背景参考：数据主权远期愿景（确权→定价→交易），只答"为什么"，**不作执行依据** | 参考 |
 | `research/working-memory-candidates.md` | 工作记忆层候选调研（与数据层分离的薄层：指针 + TTL + 任务作用域） | 调研稿 |
@@ -20,5 +21,5 @@
 ## 本区当前状态
 
 - 架构 v1 已定稿（2026-10-17）。
-- 当前单项提前推进：VPS 云端节点——开源 Agent 选型结论为 Hermes，接入按 `hermes-adjustments.md` 的清单推进（开跑前 8 项均为配置/运维级），部署开跑待用户指令。
+- 当前单项提前推进：VPS 云端节点——开源 Agent 选型结论为 Hermes，配置方案已成文待评审（`hermes-config-spec.md`），执行按 `hermes-adjustments.md` 的清单推进，部署开跑待用户指令。
 - 其余部分（Tier 1 随身终端原型、数据层全量建设等）保持探索节奏，未整体提前。

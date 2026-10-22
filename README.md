@@ -67,6 +67,7 @@ Meta 用 Confidential VM / Private processing 把用户自己采集的数据锁�
 │   ├── architecture-v1.md                       执行蓝图 v1
 │   ├── architecture-viz.html                    可视化蓝图（单文件 HTML，浏览器打开）
 │   ├── hermes-adjustments.md                    VPS 云端节点（Hermes）需求核对与调整清单
+│   ├── hermes-config-spec.md                  Hermes 节点配置方案（评审中）
 │   ├── design-harvest.md                        设计采收册（跨项目可迁移设计与教训，长期跟进）
 │   ├── background/human-data-assets/        背景参考：远期愿景（确权→定价→交易），不指导执行
 │   └── research/working-memory-candidates.md    工作记忆层候选调研
@@ -82,6 +83,7 @@ Meta 用 Confidential VM / Private processing 把用户自己采集的数据锁�
 - [x] 架构 v1 定稿（2026-10-17）
 - [x] 仓库双线分区建立（2026-10-21）：platform / memory / contracts，维护规范见 `AGENTS.md`
 - [x] VPS 云端节点选型完成（2026-10-21）：开源 Agent 结论为 Hermes，需求核对与调整清单见 `platform/hermes-adjustments.md`
+- [ ] VPS 云端节点部署开跑（Hermes）——配置方案已成文（`platform/hermes-config-spec.md`），待多智能体评审与用户指令
 - [ ] VPS 云端节点部署开跑（Hermes，按调整清单推进）——待用户指令
 - [ ] 共享记忆线内容首次同步入 `memory/` 区——由其专属对话线程按规范执行
 - [ ] **蓝图眼前第一步：Muse 接入 Demo 跑通**（adapter 模式，验证全流程与体验——见 `platform/architecture-v1.md`「协议与通道」）
