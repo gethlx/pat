@@ -14,6 +14,7 @@
 | `architecture-viz.html` | 蓝图可视化（单文件 HTML，浏览器打开：分层架构 / 系统闭环 / 触发策略 / 协议通道 / 升级矩阵） | 与蓝图同步 |
 | `hermes-adjustments.md` | VPS 云端节点（Hermes）与 PAT 需求的逐条核对及调整清单 | 定稿（2026-10-21），部署开跑待用户指令 |
 | `hermes-config-spec.md` | Hermes 节点配置方案（配置↔需求映射、设计理念、调研依据） | 待评审（2026-10-22） |
+| `hermes-config-review-guide.md` | Hermes 配置方案评审指引（给评审方智能体：范围、材料、纪律、回流格式） | 现行（2026-10-22） |
 | `design-harvest.md` | 设计采收册：历次调研的可迁移设计与反面教训（长期跟进，升级迭代时逐条回看） | 持续追加 |
 | `background/human-data-assets/` | 背景参考：数据主权远期愿景（确权→定价→交易），只答"为什么"，**不作执行依据** | 参考 |
 | `research/working-memory-candidates.md` | 工作记忆层候选调研（与数据层分离的薄层：指针 + TTL + 任务作用域） | 调研稿 |
