@@ -73,7 +73,10 @@ Meta 用 Confidential VM / Private processing 把用户自己采集的数据锁�
 │   ├── background/human-data-assets/        背景参考：远期愿景（确权→定价→交易），不指导执行
 │   └── research/working-memory-candidates.md    工作记忆层候选调研
 ├── memory/                                      共享记忆线区
-│   └── README.md                                立区说明与同步指引（内容由共享记忆线同步）
+│   ├── README.md                                立区说明、区内索引与同步指引
+│   ├── requirements-baseline.md                 需求基准（已冻结，执行依据）
+│   ├── blueprint-spec.md                        系统蓝图（草案 v0.1，待审定）
+│   └── 2026-10-26-blueprint-review-report.md    蓝图评审报告（结论：修改后冻结）
 └── contracts/                                   两线共享契约区
     ├── README.md                                契约清单与变更协议
     └── CHANGELOG.md                             契约变更记录
