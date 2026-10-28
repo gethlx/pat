@@ -1,18 +1,18 @@
 # Hermes 阶段一配置执行与验收证据报告
 
-> 状态：已执行，待验收方复核（存在未完成硬门槛）
+> 状态：已执行，待验收方复核（服务商侧硬门槛未完成）
 > 维护线：整体线
 > 最后更新：2026-10-28
-> 摘要：PAT Hermes VPS 已升级至 v0.22.5，并完成治理收口、Docker 执行隔离、API 回环绑定、自治面清理及大部分行为验收；两小时 Runs 审批与服务商侧消费上限尚未取得合格证据，因此不声明 `hermes-config-spec.md` §7 全量通过。
+> 摘要：PAT Hermes VPS 已升级至 v0.22.5，并完成治理收口、Docker 执行隔离、API 回环绑定、自治面清理及本体行为验收；服务商侧消费上限尚未取得合格证据，因此不声明 `hermes-config-spec.md` §7 全量通过。
 
 ## 0. 执行范围、判据与证据
 
 - 判据：[`hermes-config-spec.md`](hermes-config-spec.md) §7。
 - 回填清单：[`hermes-acceptance-checklist.md`](hermes-acceptance-checklist.md)。
 - 安装对象：PAT 的 Hermes VPS，默认 profile。
-- 远端证据目录：`/root/.hermes/acceptance/pat-20261027T235153Z/`，权限 `0700`，其中证据文件为 `0600`。
+- 远端主证据目录：`/root/.hermes/acceptance/pat-20261027T235153Z/`；两小时 Runs 补测证据目录：`/root/.hermes/acceptance/pat-runs-2h-20261028T060440Z/`。目录权限为 `0700`，其中证据文件为 `0600`。
 - 凭据红线：本报告只记录凭据属性、路径和权限，不记录任何 key、token 或密码值；配置哈希只覆盖不含密钥值的 `config.yaml`。
-- 执行方总判断：核心运行路径和治理闸已落实，但 §7 的“两小时 Runs 审批”和“服务商侧消费上限”没有合格证据，当前只能提交验收方复核，不能宣称“开跑验收全过”。
+- 执行方总判断：核心运行路径、治理闸和两小时 Runs 审批已落实；§7 的“服务商侧消费上限”仍没有合格证据，当前只能提交验收方复核，不能宣称“开跑验收全过”。
 
 ## A. 部署三元组与版本
 
@@ -198,8 +198,11 @@ web-perplexity, web-searxng, web-tavily, web-xai
 
 ### E3. Runs 长挂起
 
-- 已验证短时 pending control、精确 identity、批准/拒绝/超时及 stale 语义。
-- **未执行“审批挂起至少 2 小时、不重启后走完”的真实墙钟测试。** 短测不能替代该项。
+- 2026-10-28 06:05:09 UTC，Run `run_9499d15194844e21b10ea369d444f585` 进入 `waiting_for_approval`；2026-10-28 08:05:10 UTC 在单调时钟累计挂起 7201 秒后，以原 `prompt_id` 和 `execution_generation=1` 批准，审批返回 HTTP 200。
+- 121 个分钟级检查点全部为 `service=active`、`waiting_for_approval`，且 gateway PID 始终为 `3259311`，`prompt_id` 与执行代次均未变化；挂起期间没有重启 gateway。
+- 批准后同一 gateway 继续执行，2026-10-28 08:05:32 UTC Run 到达 `completed`；从进入 pending 到完成共 7223 秒。
+- 测试期间仅临时将 `approvals.timeout` 调到 7800 秒并增加只读宿主挂载以触发审批；测试结束后已恢复 `approvals.timeout=60`、`terminal.docker_volumes=[]`，配置 SHA-256 与测试前一致，gateway 为 `active`。
+- 完整证据位于 `/root/.hermes/acceptance/pat-runs-2h-20261028T060440Z/`，包含基线、121 个检查点、审批响应、最终 Run 状态、结果摘要与清理记录。
 
 ### E4. 记忆/技能写入审批
 
@@ -211,7 +214,7 @@ web-perplexity, web-searxng, web-tavily, web-xai
 
 强制终止 gateway PID `3251634` 后，systemd 自动拉起新 PID `3253498`；API 恢复 HTTP 200，Telegram 重新连接 polling，服务最终为 `active`。
 
-**E 组结论：有偏差。** 除两小时 Runs 挂起外，其余本体行为已取得实际证据；两小时项未做，因此不满足 §7 全过条件。
+**E 组结论：已落实。** 对话、模型、命令审批三态、两小时 Runs 挂起、记忆/技能写入审批及服务恢复均已取得实际证据。
 
 ## F. 外部信号在位
 
@@ -255,19 +258,17 @@ auditd 已 active，内核规则已加载：
 | 4 | 容器磁盘上限 | 配置 8 GiB，但内核未强制 | 当前存储驱动不支持 XFS pquota |
 | 5 | 模型 API 域名白名单 | 未建立宿主域名级代理 | 工具容器已断网，模型端点固定；Cloudflare 动态地址下主机 IP 白名单不稳 |
 | 6 | 每会话 token/费用硬上限 | `max_turns=90` + `run_budget_seconds=10800` | Hermes 无通用对应硬上限；还需服务商侧熔断 |
-| 7 | Runs 审批挂起 >= 2 小时 | 只完成短时三态与 stale 测试 | 未等待真实 2 小时，必须补测 |
-| 8 | 服务商费用告警/上限 | 未验证 | 需要账户侧证据 |
-| 9 | 当前 provider 配置结构 | `cloudrelay` 仍在旧 `custom_providers` | `hermes doctor` 提示应迁移到 `providers:`；现路由可用，未在本轮冒险改写 |
-| 10 | 会话自动 reset | 旧 `session_reset.mode: both` 已被 v0.22.5 忽略 | 上游要求安装额外插件；本阶段零第三方插件，当前只用 `/new`、`/reset` |
-| 11 | 依赖安全 | 上游 npm 锁文件仍报高危/中危项 | `doctor` 明示需等待上游 lockfile 修复，手工改依赖会被下次升级覆盖 |
-| 12 | Gemini 连通性 | `doctor` 返回 HTTP 400 | 非当前主/fallback 路由，保留为待处理的既存配置 |
-| 13 | 进程权限 | gateway 仍以 root 运行；SSH password auth 仍启用 | Docker 只隔离工具执行，插件/网关仍在宿主进程；迁移非 root 与关闭密码 SSH 涉及登录恢复风险，未在本轮授权范围内 |
+| 7 | 服务商费用告警/上限 | 未验证 | 需要账户侧证据 |
+| 8 | 当前 provider 配置结构 | `cloudrelay` 仍在旧 `custom_providers` | `hermes doctor` 提示应迁移到 `providers:`；现路由可用，未在本轮冒险改写 |
+| 9 | 会话自动 reset | 旧 `session_reset.mode: both` 已被 v0.22.5 忽略 | 上游要求安装额外插件；本阶段零第三方插件，当前只用 `/new`、`/reset` |
+| 10 | 依赖安全 | 上游 npm 锁文件仍报高危/中危项 | `doctor` 明示需等待上游 lockfile 修复，手工改依赖会被下次升级覆盖 |
+| 11 | Gemini 连通性 | `doctor` 返回 HTTP 400 | 非当前主/fallback 路由，保留为待处理的既存配置 |
+| 12 | 进程权限 | gateway 仍以 root 运行；SSH password auth 仍启用 | Docker 只隔离工具执行，插件/网关仍在宿主进程；迁移非 root 与关闭密码 SSH 涉及登录恢复风险，未在本轮授权范围内 |
 
 ### 后续补证顺序
 
-1. 在不重启 gateway 的条件下完成一次真实 >= 2 小时 Runs approval 挂起并批准走完。
-2. 从 Claude/Terra 服务商控制台提供“专用/可撤销/低额度 key”和消费告警/上限证据。
-3. 单独评审 `custom_providers -> providers` 迁移、Gemini 400、`session_reset` 取舍和非 root 服务化；每项先备份、再改、再跑同一验收集。
-4. 上游发布修复 npm lockfile 的稳定版后升级并重跑 `hermes doctor`。
+1. 从 Claude/Terra 服务商控制台提供“专用/可撤销/低额度 key”和消费告警/上限证据。
+2. 单独评审 `custom_providers -> providers` 迁移、Gemini 400、`session_reset` 取舍和非 root 服务化；每项先备份、再改、再跑同一验收集。
+3. 上游发布修复 npm lockfile 的稳定版后升级并重跑 `hermes doctor`。
 
 **H 组结论：有偏差。** 偏差已完整列明；本报告不把这些事项外推为 §7 已通过。
