@@ -19,7 +19,9 @@
 | `hermes-execution-report.md` | Hermes v0.22.5 配置执行与验收证据报告 | 已执行（2026-10-28） |
 | `hermes-acceptance-verdict.md` | Hermes 阶段一开跑验收结论（验收方权威记录） | §7 本体开跑验收通过（2026-10-28） |
 | `hermes-test-suite.md` | Hermes 阶段一使用验证任务集（T0-T7） | 已确认（2026-10-28） |
-| `hermes-test-results.md` | Hermes 阶段一使用验证执行结果与计量证据 | T0-T6 已完成，待老邪评分（2026-10-29） |
+| `hermes-test-results.md` | Hermes 阶段一使用验证执行结果与计量证据 | T0-T6 已完成（2026-10-29） |
+| `hermes-usage-verification-report.md` | Hermes 阶段一使用验证评分与关闭决定 | 阶段一已关闭（2026-10-29） |
+| `hermes-dsh-execution-report.md` | Hermes 封存退役与 DeepSeek Harness 部署执行报告 | 已部署、待老邪可用验收（2026-10-29） |
 | `design-harvest.md` | 设计采收册：历次调研的可迁移设计与反面教训（长期跟进，升级迭代时逐条回看） | 持续追加 |
 | `background/human-data-assets/` | 背景参考：数据主权远期愿景（确权→定价→交易），只答"为什么"，**不作执行依据** | 参考 |
 | `research/working-memory-candidates.md` | 工作记忆层候选调研（与数据层分离的薄层：指针 + TTL + 任务作用域） | 调研稿 |
@@ -27,5 +29,5 @@
 ## 本区当前状态
 
 - 架构 v1 已定稿（2026-10-17）。
-- 当前单项提前推进：VPS 云端节点——Hermes 已升级至 v0.22.5，并按配置方案完成治理收口与本体行为验收；`hermes-config-spec.md` §7 已由验收方判定通过，见 `hermes-acceptance-verdict.md`。阶段一使用验证 T0-T6 已执行完成，执行证据见 `hermes-test-results.md`，待老邪评分。
+- 当前单项提前推进：VPS 云端节点——Hermes 阶段一已关闭并完成封存退役；DeepSeek Harness `0.2.1-rc.4` 已按薄配置部署并完成四项冒烟，当前状态为“已部署、待老邪可用验收”，见 `hermes-dsh-execution-report.md`。验收通过前不投喂真实任务。
 - 其余部分（Tier 1 随身终端原型、数据层全量建设等）保持探索节奏，未整体提前。
