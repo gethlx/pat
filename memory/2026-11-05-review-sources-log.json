@@ -1,0 +1,151 @@
+{
+  "date": "2026-11-05",
+  "scope": "memory blueprint v0.2 only; not whole PAT collaboration architecture",
+  "pat_sha": "90aaa4d3988fd7e5ae05c8fe3490d09d46ab1ba4",
+  "note": "Pinned source URLs and hashes of source bytes read during review. Upstream files are referenced, not vendored. Private instance material omitted.",
+  "sources": [
+    {
+      "repo": "Tencent-Hunyuan/Hy-Memory",
+      "ref": "45dbf46545fc55fc7e331c09523b740cd1e7a944",
+      "path": "README.md",
+      "blob": "c335e89ea123e46b41fed790777d38502babd5ad",
+      "sha256": "e03160800af2f68d81fb50a1bd6a6051324e6e01e6e527fb5fd03bbbe45c96f2",
+      "url": "https://github.com/Tencent-Hunyuan/Hy-Memory/blob/45dbf46545fc55fc7e331c09523b740cd1e7a944/README.md"
+    },
+    {
+      "repo": "Tencent-Hunyuan/Hy-Memory",
+      "ref": "45dbf46545fc55fc7e331c09523b740cd1e7a944",
+      "path": "CHANGELOG.md",
+      "blob": "cfcf9f159ff1a7e938b7a743e8d8e3f000786f30",
+      "sha256": "5fec60b27039d43ed0a030cb29c2511d7d045955252d63e7aa281302746c8e0f",
+      "url": "https://github.com/Tencent-Hunyuan/Hy-Memory/blob/45dbf46545fc55fc7e331c09523b740cd1e7a944/CHANGELOG.md"
+    },
+    {
+      "repo": "Tencent-Hunyuan/Hy-Memory",
+      "ref": "45dbf46545fc55fc7e331c09523b740cd1e7a944",
+      "path": "docs/usage.md",
+      "blob": "0f661c1f6ce6ba985826bda642c05f05f39d3eaa",
+      "sha256": "c082ed0b62d83a4b3e76737ec5f23c9ba212ab121202a8dd094ddcf7a2d2850f",
+      "url": "https://github.com/Tencent-Hunyuan/Hy-Memory/blob/45dbf46545fc55fc7e331c09523b740cd1e7a944/docs/usage.md"
+    },
+    {
+      "repo": "Tencent-Hunyuan/Hy-Memory",
+      "ref": "45dbf46545fc55fc7e331c09523b740cd1e7a944",
+      "path": "memhub/README.md",
+      "blob": "21a4c96803328df7db7c296c2848a497f85a350b",
+      "sha256": "5dcd57122ab3e11e75ec9a70135b19f533e075e7a80bc49b0fa026caf4a82a84",
+      "url": "https://github.com/Tencent-Hunyuan/Hy-Memory/blob/45dbf46545fc55fc7e331c09523b740cd1e7a944/memhub/README.md"
+    },
+    {
+      "repo": "tommy0103/obelisk",
+      "ref": "1f8205b5b600516fe09ebea80d6983bcac1082b8",
+      "path": "README.md",
+      "blob": "548618be53f45ccc1143431dfada54b3e8f775ab",
+      "sha256": "859e51589079a7690aa29c03709ceebfdeb729389e45d35eb9b68a3c35cdbf5f",
+      "url": "https://github.com/tommy0103/obelisk/blob/1f8205b5b600516fe09ebea80d6983bcac1082b8/README.md"
+    },
+    {
+      "repo": "tommy0103/obelisk",
+      "ref": "1f8205b5b600516fe09ebea80d6983bcac1082b8",
+      "path": "SKILL.md",
+      "blob": "4d68f3aba08da0df1c74d91652731ba517360fc2",
+      "sha256": "5b12d0afff2180b4c1171f312a428fd45c08d2d775eb8d981a07157a00f421ae",
+      "url": "https://github.com/tommy0103/obelisk/blob/1f8205b5b600516fe09ebea80d6983bcac1082b8/SKILL.md"
+    },
+    {
+      "repo": "Anil-matcha/open-duet",
+      "ref": "3e167145881a835b790ec45f3bee6c343383058f",
+      "path": "docs/MEMORY.md",
+      "blob": "7f5b29f03d84a764128c0a39fd6edb2b3a2783db",
+      "sha256": "8ad4748aba41a7f5571814a12f32d73a13e83d40407f22e4967fdc5eadcf998c",
+      "url": "https://github.com/Anil-matcha/open-duet/blob/3e167145881a835b790ec45f3bee6c343383058f/docs/MEMORY.md"
+    },
+    {
+      "repo": "Tencent-Hunyuan/Hy-Memory",
+      "ref": "45dbf46545fc55fc7e331c09523b740cd1e7a944",
+      "path": "hy_memory/utils/raw_trim.py",
+      "blob": "071f5ca6cae970e6943c8f39ccf49a181586f933",
+      "sha256": "713266cd1562d344389cd227b7e20d1dfc958ce090d48edf9b6178e3b0598158",
+      "url": "https://github.com/Tencent-Hunyuan/Hy-Memory/blob/45dbf46545fc55fc7e331c09523b740cd1e7a944/hy_memory/utils/raw_trim.py"
+    },
+    {
+      "repo": "tommy0103/obelisk",
+      "issue": 45,
+      "url": "https://github.com/tommy0103/obelisk/issues/45",
+      "updated_at": "2026-08-11T20:45:41Z",
+      "sha256": "1d7175fc9cf63be4d394b22da03c9c18360479bfa9625a99d6ad7555a374d987"
+    },
+    {
+      "repo": "gethlx/pat",
+      "ref": "90aaa4d3988fd7e5ae05c8fe3490d09d46ab1ba4",
+      "path": "contracts/README.md",
+      "sha256": "f5f786eb385d0be7a188231f8bea27583ac4c8ad1a9149c1825cde2694d56dba",
+      "url": "https://github.com/gethlx/pat/blob/90aaa4d3988fd7e5ae05c8fe3490d09d46ab1ba4/contracts/README.md"
+    },
+    {
+      "repo": "gethlx/pat",
+      "ref": "90aaa4d3988fd7e5ae05c8fe3490d09d46ab1ba4",
+      "path": "memory/2026-10-28-blueprint-codex-report.md",
+      "sha256": "885fa5a0902bafd26f1e671415dbc913718938f69627a9c271a534ba7c819977",
+      "url": "https://github.com/gethlx/pat/blob/90aaa4d3988fd7e5ae05c8fe3490d09d46ab1ba4/memory/2026-10-28-blueprint-codex-report.md"
+    },
+    {
+      "repo": "gethlx/pat",
+      "ref": "90aaa4d3988fd7e5ae05c8fe3490d09d46ab1ba4",
+      "path": "memory/2026-10-30-agent-harness-notes.md",
+      "sha256": "13ec2144224976114f438bcee2f6860098448b37db1b5e13bca9bcac4b370b4b",
+      "url": "https://github.com/gethlx/pat/blob/90aaa4d3988fd7e5ae05c8fe3490d09d46ab1ba4/memory/2026-10-30-agent-harness-notes.md"
+    },
+    {
+      "repo": "gethlx/pat",
+      "ref": "90aaa4d3988fd7e5ae05c8fe3490d09d46ab1ba4",
+      "path": "memory/2026-10-31-raw-rag-obelisk-notes.md",
+      "sha256": "a8e1f75d77e4e35faa07eb28e816fb805e03c8ff3ec2cf686205f932067b4f84",
+      "url": "https://github.com/gethlx/pat/blob/90aaa4d3988fd7e5ae05c8fe3490d09d46ab1ba4/memory/2026-10-31-raw-rag-obelisk-notes.md"
+    },
+    {
+      "repo": "gethlx/pat",
+      "ref": "90aaa4d3988fd7e5ae05c8fe3490d09d46ab1ba4",
+      "path": "memory/README.md",
+      "sha256": "16dcef3447899c5f05a284dc18f9e7cfb0f257d6377978d7cc2728f2ec3cf6ca",
+      "url": "https://github.com/gethlx/pat/blob/90aaa4d3988fd7e5ae05c8fe3490d09d46ab1ba4/memory/README.md"
+    },
+    {
+      "repo": "gethlx/pat",
+      "ref": "90aaa4d3988fd7e5ae05c8fe3490d09d46ab1ba4",
+      "path": "memory/blueprint-spec.md",
+      "sha256": "be8e3d008507344407c97b92d3431e27df4b1e72853f340aeb3bb5b7eff303c2",
+      "url": "https://github.com/gethlx/pat/blob/90aaa4d3988fd7e5ae05c8fe3490d09d46ab1ba4/memory/blueprint-spec.md"
+    },
+    {
+      "repo": "gethlx/pat",
+      "ref": "90aaa4d3988fd7e5ae05c8fe3490d09d46ab1ba4",
+      "path": "memory/knowledge-layer-sample-spec.md",
+      "sha256": "915f73b790022a41b4255bae70db9ddaaf45ad6420cc12ae96f66725f872627d",
+      "url": "https://github.com/gethlx/pat/blob/90aaa4d3988fd7e5ae05c8fe3490d09d46ab1ba4/memory/knowledge-layer-sample-spec.md"
+    },
+    {
+      "repo": "gethlx/pat",
+      "ref": "90aaa4d3988fd7e5ae05c8fe3490d09d46ab1ba4",
+      "path": "memory/requirements-baseline.md",
+      "sha256": "7cefdaefd72b098373ae979b1248d01fb3cf4740f6681450da8c86fa3938eed2",
+      "url": "https://github.com/gethlx/pat/blob/90aaa4d3988fd7e5ae05c8fe3490d09d46ab1ba4/memory/requirements-baseline.md"
+    },
+    {
+      "repo": "Tencent-Hunyuan/Hy-Memory",
+      "ref": "45dbf46545fc55fc7e331c09523b740cd1e7a944",
+      "path": "hy_memory/pipelines/writer.py",
+      "blob": "e5f3b839d0e1acc7fcc8144bf808e2a8d8b4d34b",
+      "sha256": "fe9eabbe67e9e50364f86ca8a5777923efc215ef9b09b10e979176904e41d0e6",
+      "url": "https://github.com/Tencent-Hunyuan/Hy-Memory/blob/45dbf46545fc55fc7e331c09523b740cd1e7a944/hy_memory/pipelines/writer.py"
+    },
+    {
+      "repo": "Tencent-Hunyuan/Hy-Memory",
+      "ref": "45dbf46545fc55fc7e331c09523b740cd1e7a944",
+      "path": "tests/test_raw_trim_on_store.py",
+      "blob": "efa98bf20a0db234c6b28c9d396aba3da0c880ae",
+      "sha256": "dad79ae459c9efd653b0c5e90b44b1bf62eada7758ba11d9836d6ddb97339c03",
+      "url": "https://github.com/Tencent-Hunyuan/Hy-Memory/blob/45dbf46545fc55fc7e331c09523b740cd1e7a944/tests/test_raw_trim_on_store.py"
+    }
+  ]
+}
