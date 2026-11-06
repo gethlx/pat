@@ -29,7 +29,7 @@
 | [2026-11-06-architecture-upgrade-report.md](reviews/2026-11-06-architecture-upgrade-report.md) | 整体蓝图评审与升级建议：结合记忆线评审、OpenBot 与 Super-agent，补任务记录、多通道交接及恢复边界 | 草稿，待用户裁定；不替代执行蓝图 |
 | [2026-11-06-two-blueprint-joint-review.md](reviews/2026-11-06-two-blueprint-joint-review.md) | **两线综合评审（v2）**：系统定位为跨厂商 Agent 组织治理层，给出「薄壳＋全员 provider＋宰相席位制」形态，并甄别过度工程化 | 草稿，待用户裁定；含跨线结论，不代改任一区正文 |
 | [2026-11-06-agent-fleet-inventory.md](reviews/2026-11-06-agent-fleet-inventory.md) | **Agent 家底盘查**（落地第 0 步）：本机实测各厂商 agent 的可编程入口，按可驱动性排序出名册初稿 | 草稿，待用户补正订阅与算力事实 |
-| [2026-11-06-architecture-v2-review-muse.md](reviews/2026-11-06-architecture-v2-review-muse.md) | **v2 蓝图独立评审（老邪）**：支持冻结，提六条补记——现行协调面定位、执行器动作门与预算、记忆仓与 tasks 仓拆分、claimed 过期回收、事件可核验性、壳路线与权威词表对齐 | 草稿，待用户裁定；不替代执行蓝图 |
+| [2026-11-06-architecture-v2-review-muse.md](reviews/2026-11-06-architecture-v2-review-muse.md) | **v2 蓝图当事方意见（老邪，输入材料）**：六条意见供独立评审核查——现行协调面定位、执行器动作门与预算、记忆仓与 tasks 仓拆分、claimed 过期回收、事件可核验性、壳路线与权威词表对齐；意见人系蓝图当事方，未经独立核验 | 草稿（当事方意见），待独立评审核查；不替代执行蓝图 |
 | [background/human-data-assets/](background/human-data-assets/) | 背景参考：数据主权远期愿景（确权→定价→交易），只答"为什么"，**不作执行依据** | 参考 |
 | [research/working-memory-candidates.md](research/working-memory-candidates.md) | 工作记忆层候选调研（与数据层分离的薄层：指针 + TTL + 任务作用域） | 调研稿 |
 
