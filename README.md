@@ -1,6 +1,9 @@
 # Personal Data Sovereignty Stack
 
-> 个人数据主权硬件架构 · Private repo · 架构 v1 定稿 2026-10-17 · 双线分区维护自 2026-10-21
+> 状态：现行项目说明与总导航
+> 维护线：两线共有
+> 最后更新：2026-11-06
+> 摘要：PAT 数据主权与多智能体共享记忆的双线工作仓，提供执行依据、节点裁定与待审升级建议入口。
 
 ## 这是什么
 
@@ -24,7 +27,8 @@ Meta 用 Confidential VM / Private processing 把用户自己采集的数据锁�
 
 关键文档的角色：
 
-- `platform/architecture-v1.md` 是整体线的**唯一执行蓝图**——回答"怎么做"（分层、协议、触发策略、升级矩阵、Demo 清单）；整体线的工程决策只以它为准。
+- `platform/architecture-v2.md` 是整体线的**当前唯一执行蓝图**——回答"怎么做"（系统定位、双模接入、协调面、宰相席位、记忆面、终端、分阶段）。
+- `platform/architecture-v1.md` 是**硬件与采集阶段参考蓝图**——采集终端所有权、触发 L0–L4、私有协议止于 adapter 等原则继续有效；其 Agent 层与工作记忆层形态已由 v2 取代。
 - `platform/background/` 是**背景参考资料**——回答"为什么"（数据主权远期愿景：确权→定价→交易三层体系），**不指导落地执行，不作为工程决策依据**。
 - `memory/` 内的需求基准是共享记忆线的执行依据。
 
@@ -39,7 +43,7 @@ Meta 用 Confidential VM / Private processing 把用户自己采集的数据锁�
 │ Tier 1 随身终端（固定）   输入+采集+瞥一眼        │  ← 贴身
 │ Tier 2 大屏（开放渲染目标） 显示，可借屏          │  ← 随手
 ├─────────────────────────────────────────────────┤
-│ Agent 层（可替换，当前 Muse）  理解·任务·策略下发  │
+│ Agent 层（可替换）            理解·任务·策略下发  │
 ├─────────────────────────────────────────────────┤
 │ 数据层（自己的）   存储·定价·授权，开放格式       │
 ├─────────────────────────────────────────────────┤
@@ -57,40 +61,31 @@ Meta 用 Confidential VM / Private processing 把用户自己采集的数据锁�
 4. 不把任何当前模型能力当永久约束；接口稳定，设备可升级。
 5. 宁可少，不可脏——数据质量优先于数据量。
 
-## 仓库结构
+## 项目导航
 
-```
-├── README.md                                    本文件（总索引）
-├── AGENTS.md                                    维护规范（两线共同遵守，所有智能体/协作者必读）
-├── platform/                                    整体线区
-│   ├── README.md                                本区索引
-│   ├── architecture-v1.md                       执行蓝图 v1
-│   ├── architecture-viz.html                    可视化蓝图（单文件 HTML，浏览器打开）
-│   ├── hermes-adjustments.md                    VPS 云端节点（Hermes）需求核对与调整清单
-│   ├── hermes-config-spec.md                  Hermes 节点配置方案（评审中）
-│   ├── hermes-config-review-guide.md          Hermes 配置方案评审指引
-│   ├── design-harvest.md                        设计采收册（跨项目可迁移设计与教训，长期跟进）
-│   ├── background/human-data-assets/        背景参考：远期愿景（确权→定价→交易），不指导执行
-│   └── research/working-memory-candidates.md    工作记忆层候选调研
-├── memory/                                      共享记忆线区
-│   └── README.md                                立区说明与同步指引（内容由共享记忆线同步）
-└── contracts/                                   两线共享契约区
-    ├── README.md                                契约清单与变更协议
-    └── CHANGELOG.md                             契约变更记录
-```
+| 入口 | 用途与状态 |
+|---|---|
+| [维护规范](AGENTS.md) | 分区、写入、提交及公开边界 |
+| [整体线目录](platform/README.md) | 蓝图、节点部署与验收、设计采收和评审材料 |
+| [执行蓝图 v2](platform/architecture-v2.md) | **当前唯一执行蓝图**：跨厂商 Agent 治理、双模接入、Git 记忆基座、宰相席位制；待冻结 |
+| [硬件阶段参考 v1](platform/architecture-v1.md) · [可视化](platform/architecture-viz.html) | 采集与固件原则继续有效；Agent 层与工作记忆层已由 v2 取代 |
+| [DSH 部署验收及用户裁定](platform/dsh-deployment-verdict.md) | §5 已裁定可用；节点执行记录见整体线目录 |
+| [整体线升级评审](platform/reviews/2026-11-06-architecture-upgrade-report.md) | 2026-11-06：多通道、多 Agent、恢复与数据边界；草稿待裁定 |
+| [两线综合评审（v2）](platform/reviews/2026-11-06-two-blueprint-joint-review.md) | 2026-11-06：定位为跨厂商 Agent 组织治理层，「薄壳＋宰相席位制」；甄别过度工程化；草稿待裁定 |
+| [Agent 家底盘查](platform/reviews/2026-11-06-agent-fleet-inventory.md) | 2026-11-06：本机实测各厂商 agent 的可编程入口，按可驱动性出名册初稿；草稿待补正 |
+| [共享记忆目录](memory/README.md) | 需求基准、蓝图、调研与评审材料 |
+| [记忆需求基准](memory/requirements-baseline.md) · [蓝图 v0.2](memory/blueprint-spec.md) | 需求已冻结；蓝图仍待审定 |
+| [记忆线评审](memory/2026-11-05-blueprint-review-report.md) · [证据材料](memory/2026-11-05-review-evidence-notes.md) · [来源记录](memory/2026-11-05-review-sources-log.json) | 独立意见与固定来源，未自动成为已接受需求 |
+| [共享契约目录](contracts/README.md) · [变更记录](contracts/CHANGELOG.md) | 已立区，契约本体待两线共同定稿 |
+| [背景参考](platform/background/human-data-assets/) | 远期愿景，不作为执行依据 |
 
 ## 当前状态
 
-- [x] 架构 v1 定稿（2026-10-17）
-- [x] 仓库双线分区建立（2026-10-21）：platform / memory / contracts，维护规范见 `AGENTS.md`
-- [x] VPS 云端节点选型完成（2026-10-21）：开源 Agent 结论为 Hermes，需求核对与调整清单见 `platform/hermes-adjustments.md`
-- [ ] VPS 云端节点部署开跑（Hermes）——配置方案已通过四方评审并修订（`platform/hermes-config-spec.md`），待执行前置与用户指令
-- [ ] VPS 云端节点部署开跑（Hermes，按调整清单推进）——待用户指令
-- [ ] 共享记忆线内容首次同步入 `memory/` 区——由其专属对话线程按规范执行
-- [ ] **蓝图眼前第一步：Muse 接入 Demo 跑通**（adapter 模式，验证全流程与体验——见 `platform/architecture-v1.md`「协议与通道」）
-- [ ] Tier 1 随身终端原型（ESP32，采集 L0–L3 + 语音输入 + 瞥一眼输出）
-- [ ] 数据层（MQTT/HTTP，开放格式）
-- [ ] Tier 2 审批终端（ESP32 + 电子墨水屏，可选）
+- 整体架构 v1 已定稿（2026-10-17），仍是整体线唯一执行蓝图。
+- VPS 节点：Hermes 阶段一已关闭并封存退役；DSH 已部署，用户于 2026-10-29 裁定可用，依据为[验收结论 §5](platform/dsh-deployment-verdict.md)。这是已记录的验收结论，当前在线版本与能力须以现场核验为准。
+- 整体协作升级：2026-11-06 已形成独立评审与建议，覆盖采集、自有数据、多通道、多 Agent、共享记忆和交付恢复；待用户裁定，尚未修订执行蓝图或实施。
+- 共享记忆线：2026-10-26 已完成首次同步；需求基准已冻结，蓝图 v0.2 及 2026-11-05 评审意见仍待裁定，详见[区内状态](memory/README.md)。
+- 硬件采集、数据层全量建设和开放显示继续保持探索节奏。Muse 接入 Demo 是现行蓝图中的待验证路径，不代表当前云端节点仍使用 Muse，也不代表该 Demo 已完成。
 
 **明确不做的**：现阶段不采购、不定具体产品选型（各层只给举例；已裁定的云端节点选型除外）；Linux/树莓派路线暂缓；高清视频输出、3D/VR/AR/MR 暂不考虑。
 
