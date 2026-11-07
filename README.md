@@ -67,7 +67,7 @@ Meta 用 Confidential VM / Private processing 把用户自己采集的数据锁�
 |---|---|
 | [维护规范](AGENTS.md) | 分区、写入、提交及公开边界 |
 | [整体线目录](platform/README.md) | 蓝图、节点部署与验收、设计采收和评审材料 |
-| [执行蓝图 v2](platform/architecture-v2.md) | **当前唯一执行蓝图**：跨厂商 Agent 治理、双模接入、Git 记忆基座、宰相席位制；**已冻结（2026-11-06）** |
+| [执行蓝图 v2](platform/architecture-v2.md) | **当前唯一执行蓝图**：跨厂商 Agent 治理、双模接入、Git 记忆基座、宰相席位制；收敛裁定已落字，待 Grok Bot 评审确认 |
 | [硬件阶段参考 v1](platform/architecture-v1.md) · [可视化](platform/architecture-viz.html) | 采集与固件原则继续有效；Agent 层与工作记忆层已由 v2 取代 |
 | [DSH 部署验收及用户裁定](platform/dsh-deployment-verdict.md) | §5 已裁定可用；节点执行记录见整体线目录 |
 | [整体线升级评审](platform/reviews/2026-11-06-architecture-upgrade-report.md) | 2026-11-06：多通道、多 Agent、恢复与数据边界；草稿待裁定 |
@@ -81,7 +81,7 @@ Meta 用 Confidential VM / Private processing 把用户自己采集的数据锁�
 
 ## 当前状态
 
-- 整体架构 v2 已冻结（2026-11-06），为整体线唯一执行蓝图；v1（2026-10-17 定稿）降为硬件与采集阶段参考蓝图。
+- 整体架构 v2 已立（2026-11-06；收敛裁定已落字，待 Grok Bot 评审确认后冻结），为整体线唯一执行蓝图；v1（2026-10-17 定稿）降为硬件与采集阶段参考蓝图。
 - VPS 节点：Hermes 阶段一已关闭并封存退役；DSH 已部署，用户于 2026-10-29 裁定可用，依据为[验收结论 §5](platform/dsh-deployment-verdict.md)。这是已记录的验收结论，当前在线版本与能力须以现场核验为准。
 - 整体协作升级：2026-11-06 已形成独立评审与建议，覆盖采集、自有数据、多通道、多 Agent、共享记忆和交付恢复；待用户裁定，尚未修订执行蓝图或实施。
 - 共享记忆线：2026-10-26 已完成首次同步；需求基准已冻结，蓝图 v0.2 及 2026-11-05 评审意见仍待裁定，详见[区内状态](memory/README.md)。
