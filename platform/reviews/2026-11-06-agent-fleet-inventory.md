@@ -2,7 +2,7 @@
 
 > 状态：草稿（落地第 0 步产物，待用户补正与实测补全）
 > 维护线：整体线（评审支撑材料）
-> 最后更新：2026-11-08（补 Grok Build 可驱动性实测）
+> 最后更新：2026-11-06
 > 摘要：对本机与已知各厂商 agent 逐项核查可编程入口，按「可驱动性」而非「模型强弱」排序，给出名册初稿与每条连接手段的门槛与风险。
 
 本文件是[两线综合评审 v2](2026-11-06-two-blueprint-joint-review.md)落地顺序第 0 步的执行结果。判据只有一条：**壳能不能合法、稳定地调到它**——不是它模型多强、VPS 多少核。
@@ -145,7 +145,7 @@ codex-cli 0.166.0
 | DSH 0.2.1-rc.4 | 未装（远端有） | `acp` / `headless` / `sdk` | **推**（L2） | 待测 | 待测 | **自有 VPS** | **兜底宰相 ＋ 长期宿主** |
 | WorkBuddy | 已装 | 内置 CLI（未上 PATH） | 半 | 待查 | 待查 | 厂商 | **宰相府现成实现**；不作被调方 |
 | Muse | 已装（GUI） | Gadgets SDK（**方向相反**） | 绕 | — | — | 厂商 | **硬件终端接口**，非派活对象 |
-| Grok Build 1.0.52 | 已装（xAI 登录） | `-p` / `agent` / `leader` | **推**（L1+结构化） | ✅ `-r`／`-c` | ✅ `--json-schema`→`structuredOutput` | 厂商（SuperGrok 周池）| **宰相候选顺位三 ＋ 执行器** |
+| Grok Build | 未装 | 官方 CLI | **推**（L1） | 待测 | 待测 | 厂商（订阅）| 待实测后入册 |
 
 ## 三、由实测得出的三条判断
 
@@ -172,7 +172,7 @@ Git 就是短期基座：项目仓、`llm-wiki` 仓、加一个私密共享记�
 | 1 | **Grok Bot 拉模式可行性** | 在它的云电脑上装 git，clone 私密仓，push 一个测试文件 | **决定拉模式能否成立**，也是本蓝图第三阶段的前提 |
 | 2 | **Codex 宰相调用原型** | `codex exec --json --output-schema route.schema.json "把以下任务派给谁"` | 直接决定宰相能否当天上线 |
 | 3 | **DSH 装上** | 本机装 `@deepseek-ai/dsh@0.2.1-rc.4`，测 `acp` 与 `headless` | 决定兜底路径 |
-| 4 | ~~**Grok Build 试装**~~ | 2026-11-08 已测：`-p`／`--json-schema`／`-r` 全通；证据 `2026-11-08-grok-build-driveability.md` | 已入顺位三 |
+| 4 | **Grok Build 试装** | `curl -fsSL https://x.ai/cli/install.sh \| bash`，看有无非交互模式 | 决定是否补一家厂商 |
 | 5 | WorkBuddy `cli/bin` 探明 | 看是否可直接调起、有无 headless | 决定能否拿它当第一版宰相府 |
 | 6 | Muse Gadget 桥可行性 | 只在「真要接 Muse 当硬件面」时做 | 低优先 |
 
@@ -180,7 +180,7 @@ Git 就是短期基座：项目仓、`llm-wiki` 仓、加一个私密共享记�
 
 以下几项我只能看到「本机有什么」，看不到「你订阅了什么、机器归谁」：
 
-1. **各家订阅的实际档位**（Grok Build 已可用，扣 SuperGrok 周池；仍待补 Codex 额度细节、Muse 是否可领 Home Link token）。
+1. **各家订阅的实际档位**（决定 Grok Build 能否用、Codex 额度、Muse 是否可领 Home Link token）。
 2. ~~Grok Bot 那台 VPS 能否 SSH 跑别的~~ —— **已被用户实测解答**：能在其云电脑上驱动 Codex，故拉模式成立。待补的只剩「能否装 git 并访问私密仓」。
 3. **Muse 是否已有 Gadgets token**（决定硬件面今天能否动）。
 4. **还有没有本机没露面的 agent**（网页版订阅、公司账号、其他机器上的 CLI）。
