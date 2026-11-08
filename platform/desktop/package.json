@@ -1,0 +1,19 @@
+{
+  "name": "pat-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "description": "PAT desktop shell: Electron single-window scaffold.",
+  "main": "src/main.js",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "start": "electron .",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.0",
+    "electron": "45.2.3"
+  }
+}
