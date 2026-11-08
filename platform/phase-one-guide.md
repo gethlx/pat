@@ -1,10 +1,10 @@
 # PAT 阶段一实施规划
 
-> 状态：实施规划草案。2026-11-08 已裁定阶段一采用 macOS 桌面入口；同日按五份开工评审修订实施顺序、领取协议与验收写法；同日再按开发/真机分界修订实现栈与开工门：开发与自动验收在 Linux 完成，用户 Mac 只做真机测试。
+> 状态：实施规划草案。2026-11-08 已裁定阶段一采用 macOS 桌面入口；同日按五份开工评审修订实施顺序、领取协议与验收写法；同日再按开发/真机分界修订实现栈与开工门：开发与自动验收在 Linux 完成，用户 Mac 只做真机测试。同日再写入：轨 A 锁定 Python 3.13 + uv + pytest；运行时账本落在独立私有仓 pat-memory，与公开设计仓 pat 分治，并拆出可验收的轨 A 编程任务。
 > 维护线：整体线
 > 最后更新：2026-11-08
-> 摘要：用一个桌面窗口手动选择 Agent、派活和打开结果。实现拆成可并行两轨：轨 A 是账本引擎，轨 B 是窗口。两轨都在 Linux 开发机（老邪云电脑）上写完、测完并做自动验收；用户的 macOS 只用来做真机测试——从 Finder/桌面打开已构建的应用，跑两个真实执行器并打开结果。窗口实现选用 Electron 单窗口壳，不再用只能在 macOS 上打包的原生 SwiftUI App target 当开发门控，也不把完整 Xcode 或在用户本机打 `.app` 写成开工门。以两个真实执行器验证共用 Git 账本、重复投递与事件恢复。
-> 依据：提交 `6b291e9` 的 [v2 蓝图](architecture-v2.md) §三、§四、§八、§九、§十一。阶段一入口及对应验收按 [2026-11-08 桌面版裁定](../AGENTS.md#当前阶段随进展更新本节)执行，取代蓝图正文里的脚本命令入口描述。开发在 Linux、Mac 只做真机测试的分界以本稿为准。不改冻结蓝图。
+> 摘要：用一个桌面窗口手动选择 Agent、派活和打开结果。实现拆成可并行两轨：轨 A 是账本引擎（Python 3.13 + uv + pytest），轨 B 是窗口。设计与代码在公开仓 [gethlx/pat](https://github.com/gethlx/pat)，运行时共享记忆在私有仓 [gethlx/pat-memory](https://github.com/gethlx/pat-memory)。两轨都在 Linux 开发机（老邪云电脑）上写完、测完并做自动验收；用户的 macOS 只用来做真机测试——从 Finder/桌面打开已构建的应用，跑两个真实执行器并打开结果。窗口实现选用 Electron 单窗口壳，不再用只能在 macOS 上打包的原生 SwiftUI App target 当开发门控，也不把完整 Xcode 或在用户本机打 `.app` 写成开工门。以两个真实执行器验证共用 Git 账本、重复投递与事件恢复。
+> 依据：提交 `6b291e9` 的 [v2 蓝图](architecture-v2.md) §三、§四、§八、§九、§十一。阶段一入口及对应验收按 [2026-11-08 桌面版裁定](../AGENTS.md#当前阶段随进展更新本节)执行，取代蓝图正文里的脚本命令入口描述。开发在 Linux、Mac 只做真机测试的分界以本稿为准。轨 A 语言与两仓分治以本稿为准。不改冻结蓝图。
 
 ## 首版给谁用
 
@@ -12,18 +12,24 @@
 
 验收实例怎么选：优先登记蓝图里已实测可驱动的 Codex CLI；第二个选本机已经能跑出文本产物的 `push` 实例。不要为了凑两个去接尚未可驱动的，也不要把不可达实例（例如厂商云电脑）纳入阶段一正式验收。选谁由用户在本机确认，规划只写这条规则，不写死第二家品牌。
 
-**PAT 自建桌面壳。** 用 Electron 做单窗口桌面壳。受理、派活、产物核验与 Git 记账放在可被窗口调用的跨平台账本引擎里，不把 Git 记账写死在渲染进程或视图中。主进程用 Node `child_process`（或引擎自己的进程拉起）启动 Git 和已配置的执行命令。Codex CLI 等工具可经各自公开入口登记，选择权在用户手里。首版正式验收至少覆盖两个不同 Agent 的真实接入，每次只派给用户选中的一家；这两个真实执行器与从桌面打开结果，在用户 Mac 上做真机验收。桌面体验参考 OpenBot 的统一入口和手动选人。选定 Electron 而不是原生 SwiftUI，是因为它能在 Linux 开发机上编译、启动真实窗口并用自动测试验收协议与窗口行为，同一套代码再打出供 Finder 打开的 macOS 应用。不把 Tauri 定为首版，是为了让 Linux 开发机与 Mac 真机共用同一套 Chromium，减少窗口行为不一致；若以后要减包体，可在不改账本引擎接口的前提下换更轻的壳。 [Electron 文档](https://www.electronjs.org/docs/latest/tutorial/quick-start) · [Node.js child_process](https://nodejs.org/api/child_process.html)
+**PAT 自建桌面壳。** 用 Electron 做单窗口桌面壳。受理、派活、产物核验与 Git 记账放在可被窗口调用的跨平台账本引擎里，不把 Git 记账写死在渲染进程或视图中。轨 A 账本引擎锁定为 Python 3.13，用 uv 管理依赖，用 pytest 做自动测试，代码放在本仓 `platform/ledger/`；窗口主进程用完整路径调用该 CLI。主进程用 Node `child_process`（或引擎自己的进程拉起）启动 Git 和已配置的执行命令。Codex CLI 等工具可经各自公开入口登记，选择权在用户手里。首版正式验收至少覆盖两个不同 Agent 的真实接入，每次只派给用户选中的一家；这两个真实执行器与从桌面打开结果，在用户 Mac 上做真机验收。桌面体验参考 OpenBot 的统一入口和手动选人。选定 Electron 而不是原生 SwiftUI，是因为它能在 Linux 开发机上编译、启动真实窗口并用自动测试验收协议与窗口行为，同一套代码再打出供 Finder 打开的 macOS 应用。不把 Tauri 定为首版，是为了让 Linux 开发机与 Mac 真机共用同一套 Chromium，减少窗口行为不一致；若以后要减包体，可在不改账本引擎接口的前提下换更轻的壳。 [Electron 文档](https://www.electronjs.org/docs/latest/tutorial/quick-start) · [Node.js child_process](https://nodejs.org/api/child_process.html)
 
 ## 技术边界
 
 | 部件 | 首版做法 |
 |---|---|
-| 桌面壳 | 计划在 `platform/desktop/` 放一个 Electron 单窗口应用，不用只能在 macOS 上构建的原生 SwiftUI App target。窗口和协调逻辑随同一份应用交付。Linux 开发机直接编译并启动该窗口做开发与自动测试；macOS 安装包由 CI 的 macOS 构建环境（例如本仓 GitHub Actions 的 macos runner）或任一已有打包能力的构建机打出，供用户从 Finder 打开。不要在用户本机打 `.app`，不要把完整 Xcode 写成开工条件。Git 与执行调用在主进程后台执行，窗口保持响应。账本写入沿用单机串行与操作系统文件锁，任务归属以远端为准 |
+| 桌面壳 | 计划在 `platform/desktop/` 放一个 Electron 单窗口应用，不用只能在 macOS 上构建的原生 SwiftUI App target。账本引擎代码放在本仓 `platform/ledger/`，由窗口按完整路径调用，不把记账写进渲染进程。Linux 开发机直接编译并启动该窗口做开发与自动测试；macOS 安装包由 CI 的 macOS 构建环境（例如本仓 GitHub Actions 的 macos runner）或任一已有打包能力的构建机打出，供用户从 Finder 打开。不要在用户本机打 `.app`，不要把完整 Xcode 写成开工条件。Git 与执行调用在主进程后台执行，窗口保持响应。账本写入沿用单机串行与操作系统文件锁，任务归属以远端为准 |
 | 名册与配置 | 一份本地 JSON 配置保存账本路径、任务工作目录、Git 可执行文件路径、账本提交用的 `user.name` / `user.email`，以及多个执行器实例。设置中可添加或修改名称、可执行文件路径、参数和超时。实例沿用 `mode`、`invoke`。阶段一运行已接通的 `push` 实例；不可达或尚未接通的实例可在下拉中可见但禁用，并旁注「待接入」，不纳入正式验收。执行命令和 `git` 都用完整路径。阶段四若迁移至 `agents.yaml`，继续只维护一份名册，只换格式、不换调度语义 |
 | 执行工作目录 | 每次任务使用独立的普通目录，放经用户选定的输入与预期输出。阶段一只支持小型文本产物。账本 checkout 与执行目录分开，账本 checkout 不得兼作执行工作目录 |
-| 私有账本仓 | 按蓝图 §4.3 建立一个独立仓，使用 `events/`、`tasks/` 及约定的记忆目录。另增补 `artifacts/<任务 ID>/` 存放获准小文本产物（这是对 §4.3 目录树的补充，不回改冻结蓝图）；任务九字段里的 `artifacts[]` 记相对路径与 SHA-256。空的 `inbox/`、`claimed/`、`done/`、`proposals/`、`confirmed/`、`index/` 以及 `artifacts/` 均提交 `.gitkeep`。设计仓（本仓 `platform/desktop/`）只放应用源码、模板与合成样例，不要和账本 checkout 混在一个工作副本里。禁止对账本仓 `main` force-push |
+| 私有账本仓 | 运行时共享记忆（事件库 + 任务账本 + 阶段一获准小文本产物）放在独立私有仓 [gethlx/pat-memory](https://github.com/gethlx/pat-memory)，初始提交 `33b7814353ee162c9b495e9470162891c7f55d43`。仓根骨架为 `events/`、`proposals/`、`confirmed/`、`index/`、`tasks/inbox/`、`tasks/claimed/`、`tasks/done/`、`artifacts/`（空目录带 `.gitkeep`）；已有 README，`.gitignore` 忽略 `.git/pat.lock`。`artifacts/<任务 ID>/` 是对蓝图 §4.3 目录树的补充，不回改冻结蓝图；任务九字段里的 `artifacts[]` 记相对路径与 SHA-256。设计、蓝图与应用代码走公开仓 [gethlx/pat](https://github.com/gethlx/pat)（Apache-2.0），不要把账本 checkout 混进设计仓工作副本，也不要把本机路径写死进规划或源码（账本路径由配置或 CLI 参数传入）。禁止对账本仓 `main` force-push |
 | 共享接口 | 阶段一按 [记忆接入契约草案](../contracts/memory-integration-spec.md) 第二节的当前样例，只实现四种事件：`task.created`、`task.claimed`、`task.completed`、`task.released`。信封字段为 `id`、`at`、`kind`、`actor`、`source`、`data`；任务快照含蓝图九个字段和 `bucket`。阶段一期间不改这些字段含义。整份契约的两区确认是阶段二开工前置，不是阶段一关门条件，也不是轨 A 开工门 |
-| 本地锁 | 锁只防止同一个应用实例重入，不能代替远端归属。锁文件放在 checkout 内且被 gitignore（例如 `.git/pat.lock`），或放在 checkout 外侧 |
+| 本地锁 | 锁只防止同一个应用实例重入，不能代替远端归属。锁文件放在 checkout 内且被 gitignore（与 pat-memory 已忽略的 `.git/pat.lock` 一致），或放在 checkout 外侧 |
+| 账本引擎 | 轨 A 锁定 Python 3.13 + uv + pytest，代码在本仓 `platform/ledger/`。Linux 开发机上的自动验收入口是 `uv run pytest`。CLI 供窗口主进程和测试按完整路径调用，不是给用户的产品入口。不要用其他语言重写轨 A |
+| 两仓分治 | 公开仓 pat 只放设计与代码；私有仓 pat-memory 只放运行时事件、任务目录和阶段一获准小文本产物。测试用临时目录构造与初始提交一致的骨架，不要为了跑测试去改 pat-memory，也不要把两仓 checkout 放进同一个工作副本 |
+
+**两仓分治。** 设计、蓝图和应用代码在公开仓 [gethlx/pat](https://github.com/gethlx/pat)（Apache-2.0）。运行时共享记忆在独立私有仓 [gethlx/pat-memory](https://github.com/gethlx/pat-memory)，初始提交 `33b7814353ee162c9b495e9470162891c7f55d43`。不要把账本 checkout 混进设计仓工作副本，也不要把本机路径写死进规划或源码；账本路径由配置或 CLI 参数传入。
+
+**轨 A 语言与工具链。** 轨 A 实现锁定为 Python 3.13，依赖与虚拟环境用 uv 管理，测试用 pytest。Linux 开发机上的自动验收入口是在 `platform/ledger/` 下执行 `uv run pytest`。不要用其他语言重写轨 A。
 
 首版范围是一个窗口、一套账本和手动选人。阶段二接 Telegram、关键词检索、主动回传与换人接手。阶段三做常驻拉取加固。阶段四接宰相与自动路由。三区是桌面布局；任务对象的字段与动作保持与通道无关，后续通道复用同一套状态，不要求复刻三栏版式。阶段一窗口不预留确认、晋升、记忆检索或 Telegram 入口。 [蓝图阶段表](architecture-v2.md#八分阶段)
 
@@ -103,7 +109,7 @@
 
 | 轨 | 做什么 | 开工门控 | 可检查的完成条件 |
 |---|---|---|---|
-| A. 账本引擎 | 创建与领取同一提交、`source_ref` 查重、push 后读回、冲突时按上文领取协议做 `fetch` + `reset --hard`、完成提交、四种任务事件的 JSONL、从事件重建 `tasks/` | 可在 Linux / 无 GUI 环境用假执行器（写入约定的 `result.md` 后退出 0）先写并跑通。不依赖用户 Mac，不依赖 Xcode | 用假执行器证明：创建 / 领取 / 完成可从同一账本读回；同一 `source_ref` 只启动一次；同键改内容或执行器时停下来核对；非快进时硬复位后再读 inbox；克隆后仅凭事件还原一条任务，与远端账本和产物引用比对 |
+| A. 账本引擎 | 创建与领取同一提交、`source_ref` 查重、push 后读回、冲突时按上文领取协议做 `fetch` + `reset --hard`、完成提交、四种任务事件的 JSONL、从事件重建 `tasks/` | 实现锁定为 Python 3.13 + uv + pytest。可在 Linux / 无 GUI 环境用假执行器（写入约定的 `result.md` 后退出 0）先写并跑通。不依赖用户 Mac，不依赖 Xcode。账本路径由参数传入，测试用临时骨架，不改 pat-memory | 用假执行器证明：创建 / 领取 / 完成可从同一账本读回；同一 `source_ref` 只启动一次；同键改内容或执行器时停下来核对；非快进时硬复位后再读 inbox；克隆后仅凭事件还原一条任务，与远端账本和产物引用比对 |
 | B. 窗口 | Electron 单窗口、名册设置、主进程拉起探针；用完整路径调用轨 A 引擎。开发阶段用假执行器或测试替身跑通窗口路径 | 开发机（Linux）能安装跨平台工具链（Node.js 等）、编译并启动窗口。若无图形界面，用虚拟显示（如 Xvfb）跑窗口自动测试。没有「必须先在用户 Mac 上装完整 Xcode / 打出 `.app` / 装任何开发软件」的开工门 | 开发完成：Linux 上同一套窗口可启动、调用轨 A 引擎，自动测试覆盖选人、无默认选中、派活路径（可用假执行器）以及停止 / 重派等窗口动作。真机验收（不算开工门）：用户从 Finder 打开已构建的 macOS 应用，窗口显示至少两个已接通的 Agent，分别手动选择，各跑一条任务并打开真实文本产物。记录实例、版本、退出值与授权模式（写入验收记录，不要只停留在窗口瞬时状态），校验无默认选中 |
 
 两轨可并行的含义：轨 A 现在就能开工；轨 B 的窗口开发也在 Linux 上同时开工，不得因为工具链把开发推回用户的 Mac。派活路径必须调用轨 A 引擎，不得先写一套稍后抛弃的无账本执行。进程拉起的工作目录、完整路径、超时和输出采集只定一次，探针和闭环共用。
@@ -176,10 +182,50 @@
 
 这些是本仓对上游的历史采收及本稿的取舍。代码按 PAT 需求自写。详细出处见 [设计采收册](design-harvest.md) 和 [上一轮评审](reviews/2026-11-06-architecture-upgrade-report.md)。
 
+
+## 轨 A 编程任务
+
+下列任务写在公开设计仓，供程序员按「一个任务一个分支、经 PR 合入 `pat` 的 main」领取。不要把任务说明或引擎代码写进私有仓 `pat-memory`。每个任务写明目标、涉及文件、验收标准和测试方法；合入前在 Linux 开发机上跑通所列测试。任务按依赖顺序排列，A1 现在就可以开工。
+
+### A1. 账本引擎脚手架
+
+- 目标：在公开设计仓建立 Python 3.13 + uv + pytest 工程，提供可被窗口主进程按完整路径调用的 CLI 入口。账本 checkout 路径只通过 CLI 参数或配置传入，不写死本机路径。
+- 涉及文件：`platform/ledger/pyproject.toml`、`platform/ledger/README.md`、包目录与 CLI 入口、最少冒烟测试。不改 `architecture-v2.md`，不写入 `pat-memory`。
+- 验收标准：在 Linux 开发机上 `uv run pytest` 通过；项目元数据要求 Python 3.13；CLI 能打印帮助或版本；未提供账本路径时不得默认落到某个本机绝对路径，须以明确错误退出。
+- 测试方法：在 `platform/ledger/` 执行 `uv run pytest`。断言项目要求 Python 3.13；调用 CLI 且不传账本路径时非零退出或给出明确错误，并且不创建隐藏的默认 checkout。
+
+### A2. 账本仓接入、骨架校验与本地锁
+
+- 目标：引擎能指向一份 `pat-memory` 风格的 checkout，校验仓根骨架齐全，加上本地锁，并拒绝把设计仓工作副本当作账本。
+- 涉及文件：`platform/ledger/` 下的路径校验、骨架检查与锁（checkout 内锁文件与 pat-memory 已忽略的 `.git/pat.lock` 一致）。测试夹具在临时目录合成骨架；不要改私有仓 `pat-memory` 本身。
+- 验收标准：骨架齐全时可获取锁并报告就绪；缺任一约定目录则失败并说明缺什么；若给定路径位于本设计仓工作副本内，拒绝并说明两仓不得混用；锁能防止同一应用实例重入；源码和测试不写死任何开发机绝对路径。
+- 测试方法：pytest 在临时目录建出与初始提交 `33b7814353ee162c9b495e9470162891c7f55d43` 一致的骨架（`events/`、`proposals/`、`confirmed/`、`index/`、`tasks/inbox/`、`tasks/claimed/`、`tasks/done/`、`artifacts/`）。正反用例覆盖缺目录、指向设计仓路径、锁重入。
+
+### A3. 创建与领取同一提交，四种事件与 `source_ref` 去重
+
+- 目标：实现任务九字段加 `bucket`、四种事件信封，以及创建与领取写入同一 Git 提交；按 `source_ref` 在 `inbox/`、`claimed/`、`done/` 查重。
+- 涉及文件：`platform/ledger/` 下的事件 JSONL 写入、任务文件读写、创建/领取提交逻辑与对应测试。
+- 验收标准：事件含 `id`、`at`、`kind`、`actor`、`source`、`data`；任务快照含蓝图九个字段和 `bucket`；JSONL 按壳的 UTC 写入日分文件，仅引擎追加。同一提交内先建后领，任务出现在 `claimed/`。同一 `source_ref` 且请求相同则不新建、不第二次领取；同键但内容或执行器有变时停止并回报需要核对，不覆盖。
+- 测试方法：pytest 使用临时 Git 仓（带本地远端）模拟账本。读回提交，断言同一 commit 含任务移动与对应事件行；去重的两个分支（同键同请求 / 同键变更）各有用例。
+
+### A4. 领取协议：push 后读回，非快进时 `fetch` + `reset --hard`
+
+- 目标：把上文领取协议做成可测实现：普通推送后读回再继续；非快进时只在专用且干净的领取副本上 `git fetch` 与 `git reset --hard`，重读 `tasks/inbox/` 后再决定是否领取。
+- 涉及文件：`platform/ledger/` 下的 push/读回、专用领取副本与冲突恢复，以及对应测试。
+- 验收标准：快进路径在 push 后读回，确认任务仍在 `claimed/`、最新领取事件为本次记录才继续。非快进时只在专用且无未保存工作的领取副本上执行 `git fetch` 与 `git reset --hard`，重读 `tasks/inbox/` 后再决定。实现与测试不得对领取提交做 rebase 或 merge，也不得对账本仓 `main` force-push。
+- 测试方法：pytest 构造两个本地远端竞争领取的非快进场景，断言走硬复位协议且最终归属以读回为准；另用契约测试或等价断言保证领取路径不调用 rebase、merge 或 force-push。
+
+### A5. 假执行器完成与释放、`artifacts/` 与从事件重建
+
+- 目标：用写入约定 `result.md` 后退出 0 的假执行器跑通完成提交；支持释放回 `inbox/`；能忽略现成 `tasks/`、仅凭事件重建一条任务并核对产物引用。
+- 涉及文件：`platform/ledger/` 下的假执行器、完成/释放提交、`artifacts/<任务 ID>/` 复制与 SHA-256、重建入口与测试。
+- 验收标准：完成事件、任务移入 `done/`、获准产物进入 `artifacts/<任务 ID>/` 且 `artifacts[]` 记相对路径与 SHA-256，以上写在同一提交。释放写入 `task.released` 并将任务放回 `inbox/`，沿用原 `source_ref`。重建时忽略克隆来的 `tasks/`，还原的 ID、目录、来源、归属和产物引用与远端一致。越界路径或符号链接拒收，不显示「已完成」。创建 / 领取 / 完成可从同一账本读回。
+- 测试方法：在 `platform/ledger/` 执行 `uv run pytest`，覆盖完成、释放、重建和越界产物。此任务通过后，轨 A 表格里「可检查的完成条件」须全部被测试覆盖。
+
 ## 待实施核对
 
-- 轨 A 现在可以开工：用假执行器和合成事件样例验证领取、去重与重建。不依赖用户 Mac，不依赖 Xcode。
+- 轨 A 现在可以按上方 A1 开工：语言锁定 Python 3.13 + uv + pytest，代码写在本仓 `platform/ledger/`。用临时骨架和假执行器验证领取、去重与重建。不依赖用户 Mac，不依赖 Xcode，不改 `pat-memory`，不把本机路径写死进代码。
 - 轨 B 现在也可以在 Linux 开发机开工：用 Electron 写单窗口，用假执行器或测试替身，必要时加上虚拟显示做自动测试。不要等用户安装 Xcode，不要等本机打出 `.app`。
 - 真机验收前：用 CI 或已有构建机打出可供 Finder 打开的 macOS 应用，在用户 Mac 上核对两个选定执行器、Git 登录态和目标账本权限。用户不安装开发工具链。
-- Electron 单窗口、跨平台账本引擎、非沙盒和本地 JSON 是本稿给出的实现选择。原生 SwiftUI App target 不再作为开发路径。
+- Electron 单窗口、Python 3.13 账本引擎（uv + pytest）、非沙盒和本地 JSON 是本稿给出的实现选择。原生 SwiftUI App target 不再作为开发路径。公开 pat 与私有 pat-memory 两仓分治，不要把账本 checkout 混进设计仓。
 - 独立子项目的详细设计和里程碑由其维护方确认。整体阶段一的关闭依据是本阶段的账本与交付证据，以及上方 §十一锁定表。接入契约待两区确认后用于阶段二的真实记忆接入，接入链路另行验收。
