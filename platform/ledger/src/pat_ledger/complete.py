@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
+import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -13,7 +14,9 @@ from pat_ledger.events import (
     append_event,
     build_event,
     format_at,
+    fresh_event_id,
     iter_event_records,
+    require_task_id,
     task_snapshot,
     utc_now,
 )
@@ -22,6 +25,22 @@ from pat_ledger.gitutil import run_git
 SEARCH_BUCKETS = ("inbox", "claimed", "done")
 DEFAULT_REMOTE = "origin"
 DEFAULT_BRANCH = "main"
+_SECRET_NAMES = frozenset(
+    {
+        ".env",
+        "id_rsa",
+        "id_dsa",
+        "id_ecdsa",
+        "id_ed25519",
+        ".npmrc",
+        ".pypirc",
+        ".netrc",
+        "credentials.json",
+        "secrets.json",
+    }
+)
+_SECRET_SUFFIXES = (".pem", ".key", ".p12", ".pfx")
+_SECRET_MESSAGE = "拒绝把明显密钥文件当产物提交"
 
 
 def load_task(root: Path, task_id: str) -> tuple[str, dict[str, Any], Path] | None:
@@ -42,6 +61,13 @@ def latest_task_event(root: Path, task_id: str, kind: str) -> dict[str, Any] | N
     return matches[-1] if matches else None
 
 
+def _is_secret_name(name: str) -> bool:
+    base = Path(name).name
+    if base in _SECRET_NAMES or base.startswith(".env."):
+        return True
+    return base.lower().endswith(_SECRET_SUFFIXES)
+
+
 def inspect_artifact(work_dir: Path, name: str) -> Path:
     if not name or Path(name).is_absolute():
         raise LedgerError("产物路径越界")
@@ -58,15 +84,34 @@ def inspect_artifact(work_dir: Path, name: str) -> Path:
     resolved = raw.resolve()
     if not resolved.is_relative_to(work):
         raise LedgerError("产物路径越界")
+    if _is_secret_name(name):
+        raise LedgerError(_SECRET_MESSAGE)
     if not raw.exists() or not raw.is_file():
         raise LedgerError("产物不存在或不可读")
     if raw.is_symlink() or resolved.is_symlink():
         raise LedgerError("拒收符号链接")
     try:
-        raw.read_text(encoding="utf-8")
+        text = raw.read_text(encoding="utf-8")
     except UnicodeDecodeError as exc:
         raise LedgerError("产物不是可读文本") from exc
+    if "-----BEGIN " in text and "PRIVATE KEY-----" in text:
+        raise LedgerError(_SECRET_MESSAGE)
     return raw
+
+
+def _ensure_separate_workdir(root: Path, work_dir: Path) -> None:
+    if work_dir.is_symlink():
+        raise LedgerError("执行工作目录必须与账本 checkout 分开")
+    if not work_dir.exists() or not work_dir.is_dir():
+        raise LedgerError("执行工作目录不存在")
+    resolved_work = work_dir.resolve()
+    resolved_root = root.resolve()
+    if (
+        resolved_work == resolved_root
+        or resolved_work.is_relative_to(resolved_root)
+        or resolved_root.is_relative_to(resolved_work)
+    ):
+        raise LedgerError("执行工作目录必须与账本 checkout 分开")
 
 
 def _snapshot_from(existing: dict[str, Any], *, owner: str | None, artifacts: list[Any] | None) -> dict[str, Any]:
@@ -106,6 +151,7 @@ def complete_task(
     artifact_name: str = "result.md",
     now: datetime | None = None,
 ) -> dict[str, Any]:
+    task_id = require_task_id(task_id)
     root = ledger.path
     found = load_task(root, task_id)
     if found is None:
@@ -115,6 +161,7 @@ def complete_task(
         raise LedgerError(f"只有 claimed/ 中的任务可以完成，当前在 {bucket}/")
     if latest_task_event(root, task_id, "task.claimed") is None:
         raise LedgerError(f"缺少任务 {task_id} 的领取事件")
+    _ensure_separate_workdir(root, Path(work_dir))
     source = inspect_artifact(Path(work_dir), artifact_name)
     dest = root / "artifacts" / task_id / source.name
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -125,7 +172,7 @@ def complete_task(
     done_task = _snapshot_from(existing, owner=existing.get("owner"), artifacts=artifacts)
     completed = build_event(
         kind="task.completed",
-        event_id=f"evt-{task_id}-completed",
+        event_id=fresh_event_id(root, f"evt-{task_id}-completed"),
         at=format_at(utc_now(now)),
         bucket="done",
         task=done_task,
@@ -145,6 +192,75 @@ def complete_task(
     }
 
 
+def _git_detail(result: subprocess.CompletedProcess[str]) -> str:
+    return (result.stderr or result.stdout).strip() or f"exit {result.returncode}"
+
+
+def _pending(result: dict[str, Any], error: str) -> dict[str, Any]:
+    return {**result, "status": "pending-sync", "error": error}
+
+
+def _remote_events(root: Path, spec: str) -> list[dict[str, Any]]:
+    listing = run_git(root, "ls-tree", "-r", "--name-only", spec, check=False)
+    if listing.returncode != 0:
+        return []
+    events: list[dict[str, Any]] = []
+    for relative in listing.stdout.splitlines():
+        if not (relative.startswith("events/") and relative.endswith(".jsonl")):
+            continue
+        shown = run_git(root, "show", f"{spec}:{relative}", check=False)
+        if shown.returncode != 0:
+            continue
+        for line in shown.stdout.splitlines():
+            if line.strip():
+                events.append(json.loads(line))
+    return events
+
+
+def _latest_remote_event(root: Path, spec: str, task_id: str, kind: str) -> dict[str, Any] | None:
+    matches = [
+        event
+        for event in _remote_events(root, spec)
+        if event.get("kind") == kind and event.get("data", {}).get("task", {}).get("id") == task_id
+    ]
+    return matches[-1] if matches else None
+
+
+def _publish_completion(
+    ledger: LedgerCheckout,
+    result: dict[str, Any],
+    remote: str,
+    branch: str,
+) -> dict[str, Any]:
+    root = ledger.path
+    pushed = run_git(root, "push", remote, f"HEAD:{branch}", check=False)
+    fetched = run_git(root, "fetch", remote, check=False)
+    if pushed.returncode != 0:
+        return _pending(result, _git_detail(pushed))
+    if fetched.returncode != 0:
+        return _pending(result, _git_detail(fetched))
+    spec = f"{remote}/{branch}"
+    artifacts = result.get("artifacts") or []
+    if not artifacts:
+        return _pending(result, "远端尚未确认完成")
+    artifact = artifacts[0]
+    shown = run_git(root, "show", f"{spec}:tasks/done/{result['id']}.json", check=False)
+    artifact_ok = run_git(root, "show", f"{spec}:{artifact['path']}", check=False)
+    latest = latest_task_event(root, result["id"], "task.completed")
+    if (
+        shown.returncode != 0
+        or artifact_ok.returncode != 0
+        or latest is None
+        or latest.get("id") != result["event_id"]
+    ):
+        return _pending(result, "远端尚未确认完成")
+    return {
+        **result,
+        "status": "completed",
+        "commit": run_git(root, "rev-parse", spec).stdout.strip(),
+    }
+
+
 def complete_and_sync(
     ledger: LedgerCheckout,
     *,
@@ -155,6 +271,27 @@ def complete_and_sync(
     remote: str = DEFAULT_REMOTE,
     branch: str = DEFAULT_BRANCH,
 ) -> dict[str, Any]:
+    task_id = require_task_id(task_id)
+    root = ledger.path
+    found = load_task(root, task_id)
+    if found is not None and found[0] == "done":
+        latest = latest_task_event(root, task_id, "task.completed")
+        if latest is None:
+            raise LedgerError(f"缺少任务 {task_id} 的完成事件")
+        artifacts = (
+            latest.get("data", {}).get("task", {}).get("artifacts")
+            or found[1].get("artifacts")
+            or []
+        )
+        result = {
+            "status": "recorded",
+            "id": task_id,
+            "bucket": "done",
+            "commit": run_git(root, "rev-parse", "HEAD").stdout.strip(),
+            "event_id": latest["id"],
+            "artifacts": artifacts,
+        }
+        return _publish_completion(ledger, result, remote, branch)
     result = complete_task(
         ledger,
         task_id=task_id,
@@ -162,23 +299,7 @@ def complete_and_sync(
         artifact_name=artifact_name,
         now=now,
     )
-    pushed = run_git(ledger.path, "push", remote, f"HEAD:{branch}", check=False)
-    run_git(ledger.path, "fetch", remote)
-    spec = f"{remote}/{branch}"
-    if pushed.returncode != 0:
-        detail = (pushed.stderr or pushed.stdout).strip() or f"exit {pushed.returncode}"
-        return {**result, "status": "pending-sync", "error": detail}
-    shown = run_git(ledger.path, "show", f"{spec}:tasks/done/{task_id}.json", check=False)
-    artifact = result["artifacts"][0]
-    artifact_ok = run_git(ledger.path, "show", f"{spec}:{artifact['path']}", check=False)
-    latest = latest_task_event(ledger.path, task_id, "task.completed")
-    if shown.returncode != 0 or artifact_ok.returncode != 0 or latest is None or latest.get("id") != result["event_id"]:
-        return {**result, "status": "pending-sync"}
-    return {
-        **result,
-        "status": "completed",
-        "commit": run_git(ledger.path, "rev-parse", spec).stdout.strip(),
-    }
+    return _publish_completion(ledger, result, remote, branch)
 
 
 def release_task(
@@ -187,6 +308,7 @@ def release_task(
     task_id: str,
     now: datetime | None = None,
 ) -> dict[str, Any]:
+    task_id = require_task_id(task_id)
     root = ledger.path
     found = load_task(root, task_id)
     if found is None:
@@ -197,7 +319,7 @@ def release_task(
     released_task = _snapshot_from(existing, owner=existing.get("owner"), artifacts=existing.get("artifacts") or [])
     released = build_event(
         kind="task.released",
-        event_id=f"evt-{task_id}-released",
+        event_id=fresh_event_id(root, f"evt-{task_id}-released"),
         at=format_at(utc_now(now)),
         bucket="inbox",
         task=released_task,
@@ -214,4 +336,54 @@ def release_task(
         "commit": commit,
         "event_id": released["id"],
         "source_ref": released_task["source_ref"],
+    }
+
+
+def release_and_sync(
+    ledger: LedgerCheckout,
+    *,
+    task_id: str,
+    now: datetime | None = None,
+    remote: str = DEFAULT_REMOTE,
+    branch: str = DEFAULT_BRANCH,
+) -> dict[str, Any]:
+    task_id = require_task_id(task_id)
+    root = ledger.path
+    found = load_task(root, task_id)
+    if found is None:
+        raise LedgerError(f"找不到任务：{task_id}")
+    bucket, existing, _current_path = found
+    latest = latest_task_event(root, task_id, "task.released")
+    if bucket == "inbox" and latest is not None:
+        result = {
+            "status": "released",
+            "id": task_id,
+            "bucket": "inbox",
+            "commit": run_git(root, "rev-parse", "HEAD").stdout.strip(),
+            "event_id": latest["id"],
+            "source_ref": existing.get("source_ref"),
+        }
+    else:
+        result = release_task(ledger, task_id=task_id, now=now)
+    pushed = run_git(root, "push", remote, f"HEAD:{branch}", check=False)
+    fetched = run_git(root, "fetch", remote, check=False)
+    if pushed.returncode != 0:
+        return _pending(result, _git_detail(pushed))
+    if fetched.returncode != 0:
+        return _pending(result, _git_detail(fetched))
+    spec = f"{remote}/{branch}"
+    inbox = run_git(root, "show", f"{spec}:tasks/inbox/{task_id}.json", check=False)
+    claimed = run_git(root, "show", f"{spec}:tasks/claimed/{task_id}.json", check=False)
+    remote_event = _latest_remote_event(root, spec, task_id, "task.released")
+    if (
+        inbox.returncode != 0
+        or claimed.returncode == 0
+        or remote_event is None
+        or remote_event.get("id") != result["event_id"]
+    ):
+        return _pending(result, "远端尚未确认释放")
+    return {
+        **result,
+        "status": "released",
+        "commit": run_git(root, "rev-parse", spec).stdout.strip(),
     }

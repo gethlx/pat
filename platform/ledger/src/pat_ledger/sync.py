@@ -7,7 +7,16 @@ from typing import Any
 
 from pat_ledger.checkout import LedgerCheckout, LedgerError
 from pat_ledger.claim import GIT_EMAIL, GIT_NAME, create_and_claim, find_by_source_ref
-from pat_ledger.events import append_event, build_event, format_at, task_snapshot, utc_now
+from pat_ledger.complete import latest_task_event
+from pat_ledger.events import (
+    append_event,
+    build_event,
+    format_at,
+    fresh_event_id,
+    require_task_id,
+    task_snapshot,
+    utc_now,
+)
 from pat_ledger.gitutil import run_git
 
 DEFAULT_REMOTE = "origin"
@@ -79,7 +88,7 @@ def claim_from_inbox(
     now: datetime | None = None,
 ) -> dict[str, Any]:
     root = ledger.path
-    assigned_id = existing["id"]
+    assigned_id = require_task_id(existing["id"])
     claimed_task = task_snapshot(
         id=assigned_id,
         source_ref=existing["source_ref"],
@@ -93,7 +102,7 @@ def claim_from_inbox(
     )
     claimed = build_event(
         kind="task.claimed",
-        event_id=f"evt-{assigned_id}-claimed",
+        event_id=fresh_event_id(root, f"evt-{assigned_id}-claimed"),
         at=format_at(utc_now(now)),
         bucket="claimed",
         task=claimed_task,
@@ -164,6 +173,9 @@ def _prepare_local_claim(
     if bucket == "inbox":
         if existing.get("goal") != goal:
             return {"status": "review", "id": existing["id"], "bucket": bucket}
+        existing_owner = existing.get("owner")
+        if existing_owner and existing_owner != owner:
+            return {"status": "review", "id": existing["id"], "bucket": bucket}
         return claim_from_inbox(ledger, existing, path, owner=owner, now=now)
     if existing.get("goal") == goal and existing.get("owner") == owner:
         return {"status": "duplicate", "id": existing["id"], "bucket": bucket}
@@ -230,6 +242,23 @@ def claim_and_sync(
             task_id=task_id,
             now=now,
         )
+        if result["status"] == "duplicate" and result.get("bucket") == "claimed":
+            event = latest_task_event(ledger.path, result["id"], "task.claimed")
+            if event is not None:
+                run_git(ledger.path, "fetch", remote)
+                if not confirm_remote_claim(
+                    ledger.path,
+                    f"{remote}/{branch}",
+                    result["id"],
+                    event["id"],
+                ):
+                    result = {
+                        "status": "claimed",
+                        "id": result["id"],
+                        "bucket": "claimed",
+                        "commit": run_git(ledger.path, "rev-parse", "HEAD").stdout.strip(),
+                        "event_id": event["id"],
+                    }
         if result["status"] != "claimed":
             if after_reset:
                 result = {**result, "protocol": "reset"}

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -107,6 +108,9 @@ def append_event(root: Path, event: dict[str, Any]) -> Path:
     missing = [field for field in required if field not in event]
     if missing:
         raise LedgerError("事件信封缺少字段：" + "、".join(missing))
+    event_id = event["id"]
+    if any(record.get("id") == event_id for record in iter_event_records(root)):
+        raise LedgerError(f"事件编号已存在：{event_id}")
     at = utc_now(datetime.fromisoformat(event["at"].replace("Z", "+00:00")))
     path = root / "events" / f"{at.strftime('%Y-%m-%d')}.jsonl"
     with path.open("a", encoding="utf-8") as handle:
@@ -116,8 +120,35 @@ def append_event(root: Path, event: dict[str, Any]) -> Path:
 
 def iter_event_records(root: Path) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
-    for path in sorted((root / "events").glob("*.jsonl")):
+    events_dir = root / "events"
+    if not events_dir.is_dir():
+        return records
+    for path in sorted(events_dir.glob("*.jsonl")):
         for line in path.read_text(encoding="utf-8").splitlines():
             if line.strip():
                 records.append(json.loads(line))
     return records
+
+
+_TASK_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+ALLOWED_BUCKETS = frozenset({"inbox", "claimed", "done"})
+
+
+def require_task_id(task_id: object) -> str:
+    if (
+        not isinstance(task_id, str)
+        or ".." in task_id
+        or _TASK_ID.fullmatch(task_id) is None
+    ):
+        raise LedgerError(f"任务编号不合法：{task_id}")
+    return task_id
+
+
+def fresh_event_id(root: Path, base: str) -> str:
+    used = {event.get("id") for event in iter_event_records(root)}
+    if base not in used:
+        return base
+    number = 2
+    while f"{base}-{number}" in used:
+        number += 1
+    return f"{base}-{number}"

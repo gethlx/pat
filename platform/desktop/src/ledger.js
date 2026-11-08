@@ -17,6 +17,7 @@ function runLedger({
   args = ["ready"],
   cwd,
   timeout = 30_000,
+  gitPath,
 } = {}) {
   if (!patLedgerPath || !String(patLedgerPath).trim()) {
     return Promise.resolve(
@@ -32,9 +33,14 @@ function runLedger({
       ),
     );
   }
+  const argv = ["--ledger", ledgerPath];
+  if (gitPath && String(gitPath).trim()) {
+    argv.push("--git", String(gitPath));
+  }
+  argv.push(...args);
   return runProcess({
     command: patLedgerPath,
-    args: ["--ledger", ledgerPath, ...args],
+    args: argv,
     cwd,
     timeout,
   });

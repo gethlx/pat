@@ -53,6 +53,7 @@ function probeReady() {
     patLedgerPath: currentConfig.patLedgerPath,
     ledgerPath: currentConfig.ledgerPath,
     cwd: currentConfig.workDir,
+    gitPath: currentConfig.gitPath,
   });
 }
 
@@ -120,6 +121,12 @@ ipcMain.handle("pat:redispatch", () =>
 );
 
 ipcMain.handle("pat:selectTask", (_event, id) => session.select(id));
+
+ipcMain.handle("pat:newTask", () => session.newTask());
+
+ipcMain.handle("pat:confirmTask", () => session.confirm(currentConfig));
+
+ipcMain.handle("pat:continueSync", () => session.continueSync(currentConfig));
 
 app.whenReady().then(() => {
   configPath = resolveConfigPath();
