@@ -1,5 +1,7 @@
 const { _electron: electron } = require("@playwright/test");
+const { execFileSync } = require("node:child_process");
 const fs = require("node:fs/promises");
+const fsSync = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
@@ -82,6 +84,57 @@ function rosterConfig(dir) {
   };
 }
 
+const SKELETON_DIRS = [
+  "events",
+  "proposals",
+  "confirmed",
+  "index",
+  "artifacts",
+  "tasks/inbox",
+  "tasks/claimed",
+  "tasks/done",
+];
+
+function designRepoRoot() {
+  return path.join(__dirname, "..", "..", "..");
+}
+
+function ledgerProjectDir() {
+  return path.join(designRepoRoot(), "platform", "ledger");
+}
+
+let cachedPatLedgerPath = "";
+
+function resolvePatLedgerPath() {
+  if (cachedPatLedgerPath) {
+    return cachedPatLedgerPath;
+  }
+  const ledgerDir = ledgerProjectDir();
+  execFileSync("uv", ["sync"], { cwd: ledgerDir, stdio: "pipe" });
+  const script = path.join(ledgerDir, ".venv", "bin", "pat-ledger");
+  if (!fsSync.existsSync(script)) {
+    throw new Error("uv sync 之后未找到 pat-ledger");
+  }
+  cachedPatLedgerPath = script;
+  return cachedPatLedgerPath;
+}
+
+async function makeLedgerSkeleton(dir) {
+  const root = path.join(dir, "ledger");
+  for (const rel of SKELETON_DIRS) {
+    const folder = path.join(root, rel);
+    await fs.mkdir(folder, { recursive: true });
+    await fs.writeFile(path.join(folder, ".gitkeep"), "");
+  }
+  await fs.writeFile(path.join(root, ".gitignore"), ".git/pat.lock\n");
+  await fs.writeFile(
+    path.join(root, "README.md"),
+    "# pat-memory\n\nPAT 的私密共享记忆仓：事件库 + 任务账本。\n",
+  );
+  execFileSync("git", ["init", "--initial-branch=main"], { cwd: root, stdio: "pipe" });
+  return root;
+}
+
 module.exports = {
   launchApp,
   makeTempDir,
@@ -89,4 +142,7 @@ module.exports = {
   completeConfig,
   rosterConfig,
   emptyConfig,
+  designRepoRoot,
+  resolvePatLedgerPath,
+  makeLedgerSkeleton,
 };

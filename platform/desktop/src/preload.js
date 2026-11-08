@@ -6,4 +6,5 @@ contextBridge.exposeInMainWorld("pat", {
   saveConfig: (config) => ipcRenderer.invoke("pat:saveConfig", config),
   showSettings: () => ipcRenderer.invoke("pat:showSettings"),
   showWorkbench: () => ipcRenderer.invoke("pat:showWorkbench"),
+  probeReady: () => ipcRenderer.invoke("pat:probeReady"),
 });

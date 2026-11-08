@@ -21,6 +21,12 @@
         font-size: 1.1rem;
         margin-top: 1.5rem;
       }
+      .engine-status[data-ok="false"] {
+        color: #a40000;
+      }
+      .engine-status[data-ok="true"] {
+        color: #0b6b0b;
+      }
       label {
         display: grid;
         gap: 0.25rem;
@@ -62,6 +68,7 @@
   <body>
     <div id="view-settings" data-view="settings" hidden>
       <h1>设置</h1>
+      <p id="settings-engine-status" class="engine-status" role="status" hidden></p>
       <form id="settings-form">
         <label>账本路径 <input id="ledgerPath" name="ledgerPath" /></label>
         <label>pat-ledger 路径 <input id="patLedgerPath" name="patLedgerPath" /></label>
@@ -86,6 +93,7 @@
       <main>
         <section id="task-form-section" aria-label="任务表单">
           <h1>工作台</h1>
+          <p id="engine-status" class="engine-status" role="status" hidden></p>
           <form id="task-form">
             <label>Agent
               <select id="agent-select" name="agent">
