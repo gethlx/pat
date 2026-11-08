@@ -26,7 +26,9 @@ uv run pat-ledger --ledger /path/to/ledger-checkout claim \
 
 传入路径后，`ready`（默认）会校验骨架并对 `.git/pat.lock` 加锁，通过后打印 `ready`。
 
-`claim` 按 `source_ref` 在 `inbox/`、`claimed/`、`done/` 查重，并在同一 Git 提交里先建后领：任务落到 `tasks/claimed/`，同时追加 `task.created` 与 `task.claimed` 事件到 UTC 日分 JSONL。同一 `source_ref` 且请求相同则不新建、不第二次领取；同键但内容或执行器有变时停止并回报需要核对，不覆盖。
+`claim` 按 `source_ref` 在 `inbox/`、`claimed/`、`done/` 查重，并在同一 Git 提交里先建后领（若任务已在 `inbox/`，则只写领取并移入 `claimed/`）。随后普通推送并读回远端：确认任务仍在 `claimed/`、最新领取事件为本次记录才继续。非快进时只在专用且无未保存工作的领取副本上执行 `git fetch` 与 `git reset --hard`，重读 `tasks/inbox/` 后再决定是否领取。领取路径不会对领取提交做 rebase 或 merge，也不会对账本仓 `main` force-push。
+
+同一 `source_ref` 且请求相同则不新建、不第二次领取；同键但内容或执行器有变时停止并回报需要核对，不覆盖。
 
 ## 测试
 

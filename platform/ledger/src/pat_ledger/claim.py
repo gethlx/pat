@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import json
-import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from pat_ledger.checkout import LedgerCheckout, LedgerError
+from pat_ledger.checkout import LedgerCheckout
 from pat_ledger.events import (
     append_event,
     build_event,
@@ -14,6 +13,7 @@ from pat_ledger.events import (
     task_snapshot,
     utc_now,
 )
+from pat_ledger.gitutil import run_git
 
 SEARCH_BUCKETS = ("inbox", "claimed", "done")
 GIT_NAME = "PAT Ledger"
@@ -40,19 +40,6 @@ def _allocate_task_id(root: Path, now: datetime) -> str:
     while f"{prefix}{index:03d}" in used:
         index += 1
     return f"{prefix}{index:03d}"
-
-
-def _run_git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    result = subprocess.run(
-        ["git", "-C", str(root), *args],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        detail = (result.stderr or result.stdout).strip() or f"exit {result.returncode}"
-        raise LedgerError(f"git {' '.join(args)} 失败：{detail}")
-    return result
 
 
 def create_and_claim(
@@ -123,8 +110,8 @@ def create_and_claim(
         json.dumps(claimed_task, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
-    _run_git(root, "add", "--", str(event_path.relative_to(root)), str(task_path.relative_to(root)))
-    _run_git(
+    run_git(root, "add", "--", str(event_path.relative_to(root)), str(task_path.relative_to(root)))
+    run_git(
         root,
         "-c",
         f"user.name={GIT_NAME}",
@@ -134,10 +121,11 @@ def create_and_claim(
         "-m",
         f"claim {assigned_id}",
     )
-    commit = _run_git(root, "rev-parse", "HEAD").stdout.strip()
+    commit = run_git(root, "rev-parse", "HEAD").stdout.strip()
     return {
         "status": "claimed",
         "id": assigned_id,
         "bucket": "claimed",
         "commit": commit,
+        "event_id": claimed["id"],
     }

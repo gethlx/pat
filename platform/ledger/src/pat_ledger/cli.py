@@ -5,7 +5,7 @@ import json
 import sys
 
 from pat_ledger.checkout import LedgerCheckout, LedgerError
-from pat_ledger.claim import create_and_claim
+from pat_ledger.sync import claim_and_sync
 
 __version__ = "0.1.0"
 
@@ -87,7 +87,7 @@ def main(argv: list[str] | None = None) -> int:
                 print("ready")
                 return 0
             fields = _claim_fields(args)
-            result = create_and_claim(
+            result = claim_and_sync(
                 ledger,
                 source_ref=fields["source_ref"],
                 goal=fields["goal"],
