@@ -5,6 +5,8 @@ import json
 import sys
 
 from pat_ledger.checkout import LedgerCheckout, LedgerError
+from pat_ledger.complete import complete_and_sync, release_task
+from pat_ledger.rebuild import rebuild_from_events
 from pat_ledger.sync import claim_and_sync
 
 __version__ = "0.1.0"
@@ -33,8 +35,8 @@ def build_parser() -> argparse.ArgumentParser:
         "command",
         nargs="?",
         default="ready",
-        choices=("ready", "claim"),
-        help="ready 校验骨架并取锁；claim 创建并领取任务",
+        choices=("ready", "claim", "complete", "release", "rebuild"),
+        help="ready / claim / complete / release / rebuild",
     )
     parser.add_argument("--task-json", dest="task_json", help="任务字段 JSON")
     parser.add_argument("--source-ref", dest="source_ref")
@@ -45,6 +47,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--mode")
     parser.add_argument("--deadline")
     parser.add_argument("--handoff")
+    parser.add_argument("--workdir", dest="workdir", help="执行工作目录（与账本 checkout 分开）")
+    parser.add_argument("--artifact", dest="artifact", default="result.md")
     return parser
 
 
@@ -86,21 +90,42 @@ def main(argv: list[str] | None = None) -> int:
             if args.command == "ready":
                 print("ready")
                 return 0
-            fields = _claim_fields(args)
-            result = claim_and_sync(
-                ledger,
-                source_ref=fields["source_ref"],
-                goal=fields["goal"],
-                owner=fields["owner"],
-                from_=fields.get("from", "desktop"),
-                mode=fields.get("mode", "push"),
-                deadline=fields.get("deadline"),
-                handoff=fields.get("handoff", ""),
-                artifacts=fields.get("artifacts"),
-                task_id=fields.get("id"),
-            )
+            if args.command == "claim":
+                fields = _claim_fields(args)
+                result = claim_and_sync(
+                    ledger,
+                    source_ref=fields["source_ref"],
+                    goal=fields["goal"],
+                    owner=fields["owner"],
+                    from_=fields.get("from", "desktop"),
+                    mode=fields.get("mode", "push"),
+                    deadline=fields.get("deadline"),
+                    handoff=fields.get("handoff", ""),
+                    artifacts=fields.get("artifacts"),
+                    task_id=fields.get("id"),
+                )
+                print(json.dumps(result, ensure_ascii=False))
+                return 1 if result["status"] == "review" else 0
+            if args.command == "complete":
+                if not args.task_id or not args.workdir:
+                    raise LedgerError("complete 需要 --id 与 --workdir")
+                result = complete_and_sync(
+                    ledger,
+                    task_id=args.task_id,
+                    work_dir=args.workdir,
+                    artifact_name=args.artifact,
+                )
+                print(json.dumps(result, ensure_ascii=False))
+                return 0 if result["status"] == "completed" else 1
+            if args.command == "release":
+                if not args.task_id:
+                    raise LedgerError("release 需要 --id")
+                result = release_task(ledger, task_id=args.task_id)
+                print(json.dumps(result, ensure_ascii=False))
+                return 0
+            result = rebuild_from_events(ledger.path)
             print(json.dumps(result, ensure_ascii=False))
-            return 1 if result["status"] == "review" else 0
+            return 0
     except LedgerError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1

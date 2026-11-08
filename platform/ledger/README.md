@@ -20,15 +20,20 @@ uv run pat-ledger --version
 uv run pat-ledger --ledger /path/to/ledger-checkout
 uv run pat-ledger --ledger /path/to/ledger-checkout claim \
   --source-ref desktop:<uuid> --goal "整理文本" --owner exec-a
+uv run python -m pat_ledger.fake_executor /path/to/workdir
+uv run pat-ledger --ledger /path/to/ledger-checkout complete \
+  --id t-... --workdir /path/to/workdir --artifact result.md
+uv run pat-ledger --ledger /path/to/ledger-checkout release --id t-...
+uv run pat-ledger --ledger /path/to/ledger-checkout rebuild
 ```
 
 `--ledger` 必须由调用方传入。引擎不写死本机路径，未提供路径时以明确错误非零退出，也不会创建隐藏的默认 checkout。
 
 传入路径后，`ready`（默认）会校验骨架并对 `.git/pat.lock` 加锁，通过后打印 `ready`。
 
-`claim` 按 `source_ref` 在 `inbox/`、`claimed/`、`done/` 查重，并在同一 Git 提交里先建后领（若任务已在 `inbox/`，则只写领取并移入 `claimed/`）。随后普通推送并读回远端：确认任务仍在 `claimed/`、最新领取事件为本次记录才继续。非快进时只在专用且无未保存工作的领取副本上执行 `git fetch` 与 `git reset --hard`，重读 `tasks/inbox/` 后再决定是否领取。领取路径不会对领取提交做 rebase 或 merge，也不会对账本仓 `main` force-push。
+`claim` 按 `source_ref` 查重并先建后领，随后普通推送并读回；非快进时只在干净的领取副本上 `fetch` 与 `reset --hard`。
 
-同一 `source_ref` 且请求相同则不新建、不第二次领取；同键但内容或执行器有变时停止并回报需要核对，不覆盖。
+假执行器写入约定的 `result.md` 后退出 0，工作目录与账本 checkout 分开。`complete` 校验产物在工作目录内且不是符号链接，复制到 `artifacts/<任务 ID>/`，用路径加 SHA-256 记入 `artifacts[]`，与完成事件和任务移入 `done/` 写在同一提交；远端读回确认后才回报已完成。`release` 写入 `task.released` 并将任务放回 `inbox/`，沿用原 `source_ref`。`rebuild` 忽略现成 `tasks/`，仅凭事件还原任务视图。
 
 ## 测试
 
