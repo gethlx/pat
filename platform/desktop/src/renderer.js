@@ -29,7 +29,7 @@ function showView(view) {
 }
 
 function isReadyAgent(executor) {
-  return Boolean(executor.name.trim() && executor.command.trim());
+  return Boolean(executor.name.trim() && executor.command.trim() && (!executor.mode || executor.mode === "push"));
 }
 
 function addExecutorRow(executor = {}) {
@@ -47,7 +47,7 @@ function addExecutorRow(executor = {}) {
   row.querySelector('[data-field="name"]').value = executor.name || "";
   row.querySelector('[data-field="command"]').value = executor.command || "";
   row.querySelector('[data-field="args"]').value = Array.isArray(executor.args)
-    ? executor.args.join(" ")
+    ? JSON.stringify(executor.args)
     : "";
   row.querySelector('[data-field="timeout"]').value =
     executor.timeout == null ? "" : String(executor.timeout);
@@ -99,6 +99,16 @@ function resetTaskForm() {
   artifactName.value = "";
 }
 
+function parseArgs(text) {
+  if (!text) return [];
+  if (!text.startsWith("[")) return text.split(/\s+/);
+  const args = JSON.parse(text);
+  if (!Array.isArray(args) || args.some((arg) => typeof arg !== "string")) {
+    throw new Error("执行参数必须是字符串数组。");
+  }
+  return args;
+}
+
 function readExecutors() {
   return Array.from(executorsRoot.querySelectorAll("[data-executor]")).map((row) => {
     const argsText = row.querySelector('[data-field="args"]').value.trim();
@@ -106,7 +116,7 @@ function readExecutors() {
     return {
       name: row.querySelector('[data-field="name"]').value,
       command: row.querySelector('[data-field="command"]').value,
-      args: argsText ? argsText.split(/\s+/) : [],
+      args: parseArgs(argsText),
       timeout: timeoutText ? Number(timeoutText) : 0,
       mode: row.querySelector('[data-field="mode"]').value,
       invoke: row.querySelector('[data-field="invoke"]').value,
@@ -132,6 +142,7 @@ function applyState(state) {
   renderAgentRoster(state.config);
   renderTasks(state);
   backButton.hidden = !state.complete;
+  document.getElementById("history-error").textContent = state.historyError || "";
 }
 
 function applyTasks(state) {
@@ -153,15 +164,23 @@ function renderTasks(state) {
   emptyCurrent.hidden = hasCurrent;
   detail.hidden = !hasCurrent;
   dispatchButton.disabled = Boolean(state.busy);
+  document.getElementById("open-settings").disabled = Boolean(state.busy);
+  document.getElementById("current-task-busy").hidden = !state.busy;
+  document.getElementById("current-task-busy").textContent = current?.status === "running"
+    ? "正在处理，结束后可继续派活。" : "正在确认账本，请稍候。";
   if (hasCurrent) {
     document.getElementById("current-task-id").textContent = current.id || "";
-    document.getElementById("current-task-status").textContent = statusLabel(current.status);
+    const status = document.getElementById("current-task-status");
+    status.textContent = statusLabel(current.status);
+    status.dataset.state = current.status;
+    document.getElementById("current-task-owner").textContent = current.owner || "未指定";
+    document.getElementById("current-task-reason").textContent = current.reason || "";
     document.getElementById("current-task-goal").textContent = current.goal || "";
     document.getElementById("current-task-output").textContent = current.output || "";
     document.getElementById("artifact-path").textContent = current.artifactPath || "";
     document.getElementById("workdir-path").textContent = current.workDir || "";
     stopButton.hidden = current.status !== "running";
-    confirmButton.hidden = current.status !== "review" || Boolean(state.busy);
+    confirmButton.hidden = current.status !== "review" || !current.workDir || Boolean(state.busy);
     syncButton.hidden = current.status !== "pending-sync";
     releaseButton.hidden = current.status !== "review";
     redispatchButton.hidden = current.status !== "released";
@@ -178,7 +197,12 @@ function renderTasks(state) {
     const button = document.createElement("button");
     button.type = "button";
     button.dataset.taskId = task.id;
-    button.textContent = `${task.id} ${statusLabel(task.status)}`;
+    const summary = document.createElement("strong");
+    summary.textContent = task.goal || task.id;
+    const caption = document.createElement("small");
+    caption.textContent = [task.owner, statusLabel(task.status)].filter(Boolean).join(" · ");
+    button.append(summary, caption);
+    button.setAttribute("aria-pressed", String(task.id === state.selectedId));
     button.addEventListener("click", async () => {
       applyTasks(await window.pat.selectTask(task.id));
     });
@@ -217,7 +241,11 @@ document.getElementById("add-executor").addEventListener("click", () => {
 
 document.getElementById("settings-form").addEventListener("submit", async (event) => {
   event.preventDefault();
-  await refresh(await window.pat.saveConfig(readForm()));
+  try {
+    await refresh(await window.pat.saveConfig(readForm()));
+  } catch (error) {
+    showEngineStatus({ ok: false, error: error.message });
+  }
 });
 
 document.getElementById("open-settings").addEventListener("click", async () => {
@@ -264,6 +292,20 @@ releaseButton.addEventListener("click", async () => {
 redispatchButton.addEventListener("click", async () => {
   applyTasks(await window.pat.redispatch());
 });
+
+for (const button of document.querySelectorAll("[data-directory]")) {
+  button.addEventListener("click", async () => {
+    const directory = await window.pat.chooseDirectory();
+    if (directory) document.getElementById(button.dataset.directory).value = directory;
+  });
+}
+
+for (const [button, kind] of [[openArtifactButton, "artifact"], [openWorkdirButton, "workdir"]]) {
+  button.addEventListener("click", async () => {
+    const error = await window.pat.openTarget(kind);
+    if (error) showEngineStatus({ ok: false, error });
+  });
+}
 
 window.pat.onState((state) => {
   applyTasks(state);

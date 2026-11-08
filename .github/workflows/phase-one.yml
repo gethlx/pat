@@ -1,0 +1,50 @@
+name: PAT Phase One
+
+on:
+  pull_request:
+    paths:
+      - "platform/desktop/**"
+      - "platform/ledger/**"
+      - ".github/workflows/phase-one.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    strategy:
+      matrix:
+        runner: [ubuntu-latest, macos-15]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked --python 3.13
+        working-directory: platform/ledger
+      - run: uv run --no-sync pytest
+        working-directory: platform/ledger
+      - run: npm ci
+        working-directory: platform/desktop
+      - name: Test desktop
+        working-directory: platform/desktop
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then
+            xvfb-run --auto-servernum npm test
+          else
+            npm test
+          fi
+      - name: Build macOS Finder test app
+        if: runner.os == 'macOS'
+        run: platform/desktop/build-macos.sh "$RUNNER_TEMP/pat-build"
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'macOS'
+        with:
+          name: PAT-macOS-arm64-test
+          path: ${{ runner.temp }}/pat-build/PAT-macOS-arm64.zip
+          if-no-files-found: error
+          retention-days: 7

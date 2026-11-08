@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from pat_ledger.checkout import LedgerCheckout, LedgerError, REQUIRED_DIRS
-from pat_ledger.complete import release_task
+from pat_ledger.complete import release_and_sync
 from pat_ledger.events import iter_event_records, task_snapshot
 from pat_ledger.gitutil import run_git
 from pat_ledger.sync import claim_and_sync, hard_reset_to_remote
@@ -298,7 +298,7 @@ def test_released_task_with_other_owner_needs_review(tmp_path: Path) -> None:
     work, _remote = make_git_ledger(tmp_path)
     with LedgerCheckout(work) as ledger:
         first = claim_and_sync(ledger, **_claim_kwargs("desktop:owner"))
-        release_task(ledger, task_id=first["id"], now=FIXED_NOW)
+        assert release_and_sync(ledger, task_id=first["id"], now=FIXED_NOW)["status"] == "released"
         head = run_git(work, "rev-parse", "HEAD").stdout.strip()
         review = claim_and_sync(
             ledger,
@@ -318,9 +318,9 @@ def test_reclaim_reuses_task_and_source_but_not_event_id(tmp_path: Path) -> None
     work, _remote = make_git_ledger(tmp_path)
     with LedgerCheckout(work) as ledger:
         first = claim_and_sync(ledger, **_claim_kwargs("desktop:reclaim"))
-        release_task(ledger, task_id=first["id"], now=FIXED_NOW)
+        assert release_and_sync(ledger, task_id=first["id"], now=FIXED_NOW)["status"] == "released"
         second = claim_and_sync(ledger, **_claim_kwargs("desktop:reclaim"))
-        release_task(ledger, task_id=first["id"], now=FIXED_NOW)
+        assert release_and_sync(ledger, task_id=first["id"], now=FIXED_NOW)["status"] == "released"
     assert second["status"] == "claimed"
     assert second["id"] == first["id"]
     assert second["event_id"] != first["event_id"]
@@ -384,3 +384,14 @@ def test_optional_git_binary_is_invoked(tmp_path: Path) -> None:
     payload = json.loads(result.stdout)
     assert payload["status"] == "claimed"
     assert log.read_text(encoding="utf-8").strip()
+
+def test_claim_refuses_unrelated_staged_file(tmp_path: Path) -> None:
+    root, remote = make_git_ledger(tmp_path)
+    before = run_git(root, "rev-parse", "origin/main").stdout
+    (root / "scratch.txt").write_text("unrelated", encoding="utf-8")
+    run_git(root, "add", "scratch.txt")
+    with LedgerCheckout(root) as ledger:
+        with pytest.raises(LedgerError, match="未保存工作"):
+            claim_and_sync(ledger, **_claim_kwargs())
+    assert run_git(remote, "rev-parse", "main").stdout == before
+    assert run_git(root, "diff", "--cached", "--name-only").stdout.strip() == "scratch.txt"

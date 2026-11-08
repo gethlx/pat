@@ -17,7 +17,7 @@ from pat_ledger.events import (
     task_snapshot,
     utc_now,
 )
-from pat_ledger.gitutil import run_git
+from pat_ledger.gitutil import require_clean, require_publishable, run_git
 
 DEFAULT_REMOTE = "origin"
 DEFAULT_BRANCH = "main"
@@ -88,6 +88,7 @@ def claim_from_inbox(
     now: datetime | None = None,
 ) -> dict[str, Any]:
     root = ledger.path
+    require_clean(root)
     assigned_id = require_task_id(existing["id"])
     claimed_task = task_snapshot(
         id=assigned_id,
@@ -128,6 +129,8 @@ def claim_from_inbox(
         "commit",
         "-m",
         f"claim {assigned_id}",
+        "--only", "--",
+        str(event_path.relative_to(root)), str(dest.relative_to(root)), str(inbox_path.relative_to(root)),
     )
     commit = run_git(root, "rev-parse", "HEAD").stdout.strip()
     return {
@@ -224,6 +227,14 @@ def claim_and_sync(
     remote: str = DEFAULT_REMOTE,
     branch: str = DEFAULT_BRANCH,
 ) -> dict[str, Any]:
+    root = ledger.path
+    prior = find_by_source_ref(root, source_ref)
+    retry_message = None
+    if prior is not None and prior[0] == "claimed":
+        task = prior[1]
+        if task.get("goal") == goal and task.get("owner") == owner:
+            retry_message = f"claim {require_task_id(task['id'])}"
+    require_publishable(root, remote, branch, retry_message=retry_message)
     after_reset = False
     protocol = "fast-forward"
     last_error: str | None = None
@@ -284,7 +295,11 @@ def claim_and_sync(
                 "protocol": protocol,
             }
         protocol = "reset"
-        hard_reset_to_remote(ledger.path, remote, branch)
+        # Discard only the single rejected claim, never its unpublished parents.
+        parent = run_git(root, "rev-parse", "HEAD^").stdout.strip()
+        if not _is_ancestor(root, parent, spec):
+            raise LedgerError("领取冲突且含其他未同步历史，请人工核对账本")
+        hard_reset_to_remote(root, remote, branch)
         after_reset = True
         last_error = "non-fast-forward"
     found = find_by_source_ref(ledger.path, source_ref)

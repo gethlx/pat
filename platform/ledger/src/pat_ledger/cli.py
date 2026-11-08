@@ -7,6 +7,7 @@ from pathlib import Path
 
 from pat_ledger.checkout import LedgerCheckout, LedgerError
 from pat_ledger.complete import complete_and_sync, release_and_sync
+from pat_ledger.history import read_history
 from pat_ledger.gitutil import reset_git_binary, use_git_binary
 from pat_ledger.rebuild import rebuild_from_events
 from pat_ledger.sync import claim_and_sync
@@ -37,8 +38,8 @@ def build_parser() -> argparse.ArgumentParser:
         "command",
         nargs="?",
         default="ready",
-        choices=("ready", "claim", "complete", "release", "rebuild"),
-        help="ready / claim / complete / release / rebuild",
+        choices=("ready", "claim", "complete", "release", "rebuild", "history"),
+        help="ready / claim / complete / release / rebuild / history",
     )
     parser.add_argument("--task-json", dest="task_json", help="任务字段 JSON")
     parser.add_argument("--source-ref", dest="source_ref")
@@ -104,6 +105,9 @@ def main(argv: list[str] | None = None) -> int:
             if args.command == "ready":
                 print("ready")
                 return 0
+            if args.command == "history":
+                print(json.dumps(read_history(ledger.path), ensure_ascii=False))
+                return 0
             if args.command == "claim":
                 fields = _claim_fields(args)
                 result = claim_and_sync(
@@ -143,8 +147,8 @@ def main(argv: list[str] | None = None) -> int:
     except LedgerError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
-    except json.JSONDecodeError as exc:
-        print(f"error: --task-json 无法解析：{exc}", file=sys.stderr)
+    except ValueError as exc:
+        print(f"error: 无法读取任务或账本数据：{exc}", file=sys.stderr)
         return 1
     finally:
         if token is not None:

@@ -20,7 +20,7 @@ from pat_ledger.events import (
     task_snapshot,
     utc_now,
 )
-from pat_ledger.gitutil import run_git
+from pat_ledger.gitutil import require_clean, require_publishable, run_git
 
 SEARCH_BUCKETS = ("inbox", "claimed", "done")
 DEFAULT_REMOTE = "origin"
@@ -139,6 +139,7 @@ def _commit(root: Path, message: str, *paths: Path) -> str:
         "commit",
         "-m",
         message,
+        "--only", "--", *[str(path.relative_to(root)) for path in paths],
     )
     return run_git(root, "rev-parse", "HEAD").stdout.strip()
 
@@ -153,6 +154,7 @@ def complete_task(
 ) -> dict[str, Any]:
     task_id = require_task_id(task_id)
     root = ledger.path
+    require_clean(root)
     found = load_task(root, task_id)
     if found is None:
         raise LedgerError(f"找不到任务：{task_id}")
@@ -164,6 +166,8 @@ def complete_task(
     _ensure_separate_workdir(root, Path(work_dir))
     source = inspect_artifact(Path(work_dir), artifact_name)
     dest = root / "artifacts" / task_id / source.name
+    if dest.resolve() != dest or dest.exists():
+        raise LedgerError("账本产物路径已占用或不是普通路径，请核对")
     dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(source, dest)
     digest = hashlib.sha256(dest.read_bytes()).hexdigest()
@@ -245,11 +249,15 @@ def _publish_completion(
         return _pending(result, "远端尚未确认完成")
     artifact = artifacts[0]
     shown = run_git(root, "show", f"{spec}:tasks/done/{result['id']}.json", check=False)
-    artifact_ok = run_git(root, "show", f"{spec}:{artifact['path']}", check=False)
-    latest = latest_task_event(root, result["id"], "task.completed")
+    relative = artifact["path"]
+    remote_blob = run_git(root, "rev-parse", "--verify", f"{spec}:{relative}", check=False)
+    local_blob = run_git(root, "rev-parse", "--verify", f"HEAD:{relative}", check=False)
+    latest = _latest_remote_event(root, spec, result["id"], "task.completed")
     if (
         shown.returncode != 0
-        or artifact_ok.returncode != 0
+        or remote_blob.returncode != 0
+        or local_blob.returncode != 0
+        or remote_blob.stdout != local_blob.stdout
         or latest is None
         or latest.get("id") != result["event_id"]
     ):
@@ -273,8 +281,11 @@ def complete_and_sync(
 ) -> dict[str, Any]:
     task_id = require_task_id(task_id)
     root = ledger.path
+    require_clean(root)
     found = load_task(root, task_id)
-    if found is not None and found[0] == "done":
+    retry = f"complete {task_id}" if found is not None and found[0] == "done" else None
+    require_publishable(root, remote, branch, retry_message=retry)
+    if retry is not None:
         latest = latest_task_event(root, task_id, "task.completed")
         if latest is None:
             raise LedgerError(f"缺少任务 {task_id} 的完成事件")
@@ -310,6 +321,7 @@ def release_task(
 ) -> dict[str, Any]:
     task_id = require_task_id(task_id)
     root = ledger.path
+    require_clean(root)
     found = load_task(root, task_id)
     if found is None:
         raise LedgerError(f"找不到任务：{task_id}")
@@ -349,12 +361,15 @@ def release_and_sync(
 ) -> dict[str, Any]:
     task_id = require_task_id(task_id)
     root = ledger.path
+    require_clean(root)
     found = load_task(root, task_id)
     if found is None:
         raise LedgerError(f"找不到任务：{task_id}")
     bucket, existing, _current_path = found
     latest = latest_task_event(root, task_id, "task.released")
-    if bucket == "inbox" and latest is not None:
+    retry = f"release {task_id}" if bucket == "inbox" and latest is not None else None
+    require_publishable(root, remote, branch, retry_message=retry)
+    if retry is not None:
         result = {
             "status": "released",
             "id": task_id,

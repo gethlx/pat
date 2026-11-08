@@ -11,6 +11,7 @@ import pytest
 
 from pat_ledger.checkout import LedgerCheckout, LedgerError, REQUIRED_DIRS
 from pat_ledger.complete import complete_and_sync, complete_task, release_and_sync, release_task
+from pat_ledger.history import read_history
 from pat_ledger.rebuild import rebuild_from_events
 from pat_ledger.sync import claim_and_sync
 
@@ -312,6 +313,9 @@ def test_obvious_secret_artifacts_are_rejected(tmp_path: Path) -> None:
 
 def test_workdir_must_stay_outside_the_ledger(tmp_path: Path) -> None:
     ledger_path, _remote = make_git_ledger(tmp_path)
+    exclude = ledger_path / ".git" / "info" / "exclude"
+    with exclude.open("a", encoding="utf-8") as handle:
+        handle.write("\n/nested-work/\n/result.md\n")
     nested = ledger_path / "nested-work"
     nested.mkdir()
     (nested / "result.md").write_text("nested\n", encoding="utf-8")
@@ -467,3 +471,25 @@ def test_rebuild_ignores_bucket_paths_outside_the_ledger(tmp_path: Path) -> None
     assert (ledger_path / "tasks" / "claimed" / f"{claimed['id']}.json").is_file()
     assert list(tmp_path.rglob("bucket-escaped")) == []
     assert list(tmp_path.rglob("bucket-escaped.json")) == []
+
+def test_pending_completion_survives_new_claim_and_remote_advance(tmp_path: Path) -> None:
+    ledger_path, remote = make_git_ledger(tmp_path)
+    work_dir = tmp_path / "work"
+    assert run_fake_executor(work_dir).returncode == 0
+    with LedgerCheckout(ledger_path) as ledger:
+        first = claim_sample(ledger)
+        hook = remote / "hooks" / "pre-receive"
+        hook.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+        hook.chmod(0o700)
+        completion = complete_and_sync(ledger, task_id=first["id"], work_dir=work_dir)
+        assert completion["status"] == "pending-sync"
+        hook.unlink()
+        peer = tmp_path / "peer"
+        subprocess.run(["git", "clone", str(remote), str(peer)], check=True)
+        with LedgerCheckout(peer) as peer_ledger:
+            assert claim_sample(peer_ledger, "desktop:peer")["status"] == "claimed"
+        with pytest.raises(LedgerError, match="未同步提交"):
+            claim_sample(ledger, "desktop:second")
+        assert run_plain_git(ledger_path, "rev-parse", "HEAD").strip() == completion["commit"]
+        row, = [item for item in read_history(ledger_path)["tasks"] if item["id"] == first["id"]]
+        assert row["pending"] and row["bucket"] == "done"

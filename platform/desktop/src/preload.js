@@ -7,6 +7,8 @@ contextBridge.exposeInMainWorld("pat", {
   showSettings: () => ipcRenderer.invoke("pat:showSettings"),
   showWorkbench: () => ipcRenderer.invoke("pat:showWorkbench"),
   probeReady: () => ipcRenderer.invoke("pat:probeReady"),
+  chooseDirectory: () => ipcRenderer.invoke("pat:chooseDirectory"),
+  openTarget: (kind) => ipcRenderer.invoke("pat:openTarget", kind),
   dispatch: (payload) => ipcRenderer.invoke("pat:dispatch", payload),
   stopTask: () => ipcRenderer.invoke("pat:stop"),
   releaseTask: () => ipcRenderer.invoke("pat:release"),

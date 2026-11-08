@@ -139,3 +139,65 @@ test("release then redispatch reuses the original task", async () => {
     await app.close();
   }
 });
+
+test("passes the request to the executor and restores the verified result after restart", async () => {
+  const executor = fakeExecutorConfig();
+  executor.args = [
+    "-c",
+    "import sys; from pathlib import Path; Path(sys.argv[2]).write_text(sys.argv[1], encoding='utf-8')",
+    "{prompt}",
+    "{artifact}",
+  ];
+  const { app, dir, ledgerPath } = await launchDispatchApp([executor]);
+  const goal = "把两条验收事实写入文件。";
+  try {
+    const window = await app.firstWindow();
+    await window.locator("#agent-select").selectOption("fake");
+    await window.locator("#task-text").fill(goal);
+    await window.locator("#artifact-name").fill("验收结果.md");
+    await window.locator("#dispatch-task").click();
+    await expect(window.locator("#current-task-status")).toHaveText("已完成");
+    const id = await window.locator("#current-task-id").textContent();
+    const artifact = path.join(ledgerPath, "artifacts", id, "验收结果.md");
+    expect(await fs.readFile(artifact, "utf8")).toContain(goal);
+    await expect(window.locator("#artifact-path")).toHaveText(await fs.realpath(artifact));
+  } finally {
+    await app.close();
+  }
+  const reopened = await launchApp({ configPath: path.join(dir, "config.json") });
+  try {
+    const window = await reopened.firstWindow();
+    await expect(window.locator("#recent-task-list button")).toHaveCount(1);
+    await expect(window.locator("#current-task-goal")).toHaveText(goal);
+    await expect(window.locator("#open-artifact")).toBeVisible();
+  } finally {
+    await reopened.close();
+  }
+});
+
+test("redispatch cannot complete with an artifact from a failed attempt", async () => {
+  const executor = fakeExecutorConfig();
+  executor.args = [
+    "-c",
+    "import sys; from pathlib import Path; marker = Path.cwd().parent / 'first'; " +
+      "first = not marker.exists(); marker.touch(); " +
+      "first and Path('result.md').write_text('old result'); sys.exit(7 if first else 0)",
+  ];
+  const { app, ledgerPath } = await launchDispatchApp([executor]);
+  try {
+    const window = await app.firstWindow();
+    await window.locator("#agent-select").selectOption("fake");
+    await window.locator("#task-text").fill("write a fresh result");
+    await window.locator("#dispatch-task").click();
+    await expect(window.locator("#current-task-reason")).toContainText("退出码 7");
+    const id = await window.locator("#current-task-id").textContent();
+    await window.locator("#release-task").click();
+    await expect(window.locator("#current-task-status")).toHaveText("待领取");
+    await window.locator("#redispatch-task").click();
+    await expect(window.locator("#current-task-reason")).toContainText("记账未完成");
+    await expect(window.locator("#current-task-status")).toHaveText("待核对");
+    expect(await fs.readdir(path.join(ledgerPath, "tasks", "done"))).not.toContain(id + ".json");
+  } finally {
+    await app.close();
+  }
+});

@@ -73,3 +73,26 @@ def run_git(
         detail = (result.stderr or result.stdout).strip() or f"exit {result.returncode}"
         raise LedgerError(f"git {' '.join(args)} 失败：{detail}")
     return result
+
+
+def require_clean(root: Path) -> None:
+    if run_git(root, "status", "--porcelain").stdout.strip():
+        raise LedgerError("账本有未保存工作，请先核对暂存区和工作目录")
+
+
+def unpublished_commits(root: Path, remote: str, branch: str) -> list[str]:
+    return run_git(root, "rev-list", f"{remote}/{branch}..HEAD").stdout.splitlines()
+
+
+def require_publishable(
+    root: Path, remote: str, branch: str, *, retry_message: str | None = None
+) -> None:
+    require_clean(root)
+    pending = unpublished_commits(root, remote, branch)
+    if not pending:
+        return
+    if len(pending) == 1 and retry_message is not None:
+        subject = run_git(root, "show", "-s", "--format=%s", pending[0]).stdout.strip()
+        if subject == retry_message:
+            return
+    raise LedgerError("账本还有未同步提交，请先同步原任务或核对账本")

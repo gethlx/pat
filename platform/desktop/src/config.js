@@ -49,7 +49,8 @@ function normalizeConfig(raw) {
 }
 
 function isLaunchableExecutor(executor) {
-  return Boolean(executor.name.trim() && executor.command.trim());
+  return Boolean(executor.name.trim() && path.isAbsolute(executor.command.trim())
+    && (!executor.mode || executor.mode === "push"));
 }
 
 function isConfigComplete(config) {

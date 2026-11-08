@@ -14,7 +14,7 @@ from pat_ledger.events import (
     task_snapshot,
     utc_now,
 )
-from pat_ledger.gitutil import run_git
+from pat_ledger.gitutil import require_clean, run_git
 
 SEARCH_BUCKETS = ("inbox", "claimed", "done")
 GIT_NAME = "PAT Ledger"
@@ -58,6 +58,7 @@ def create_and_claim(
     now: datetime | None = None,
 ) -> dict[str, Any]:
     root = ledger.path
+    require_clean(root)
     found = find_by_source_ref(root, source_ref)
     if found is not None:
         bucket, existing, _path = found
@@ -121,6 +122,7 @@ def create_and_claim(
         "commit",
         "-m",
         f"claim {assigned_id}",
+        "--only", "--", str(event_path.relative_to(root)), str(task_path.relative_to(root)),
     )
     commit = run_git(root, "rev-parse", "HEAD").stdout.strip()
     return {

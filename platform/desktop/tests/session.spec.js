@@ -60,7 +60,7 @@ process.exit(1);
     executors: [
       {
         name: "fake",
-        command: "/bin/true",
+        command: process.execPath,
         args: [],
         timeout: 30,
         mode: "push",
@@ -107,7 +107,7 @@ test("dispatch rejects a work directory inside the ledger", async () => {
       executors: [
         {
           name: "fake",
-          command: "/bin/true",
+          command: process.execPath,
           args: [],
           timeout: 1,
           mode: "push",
@@ -157,8 +157,8 @@ process.stdout.write("ready\\n");
     executors: [
       {
         name: "fast",
-        command: "/bin/true",
-        args: [],
+        command: process.execPath,
+        args: ["-e", "process.exit(0)"],
         timeout: 30,
         mode: "push",
         invoke: "cli",
