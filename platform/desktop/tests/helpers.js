@@ -61,10 +61,32 @@ function launchApp(options = {}) {
   });
 }
 
+function rosterConfig(dir) {
+  const filled = completeConfig(dir);
+  return {
+    ...filled,
+    executors: [
+      {
+        ...filled.executors[0],
+        name: "alpha",
+      },
+      {
+        name: "beta",
+        command: "",
+        args: [],
+        timeout: 0,
+        mode: "push",
+        invoke: "",
+      },
+    ],
+  };
+}
+
 module.exports = {
   launchApp,
   makeTempDir,
   writeConfig,
   completeConfig,
+  rosterConfig,
   emptyConfig,
 };

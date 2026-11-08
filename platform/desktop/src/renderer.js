@@ -2,10 +2,19 @@ const settingsView = document.getElementById("view-settings");
 const workbenchView = document.getElementById("view-workbench");
 const executorsRoot = document.getElementById("executors");
 const backButton = document.getElementById("back-to-workbench");
+const agentSelect = document.getElementById("agent-select");
+const taskText = document.getElementById("task-text");
+const artifactName = document.getElementById("artifact-name");
+
+const AGENT_PLACEHOLDER = "请选择 Agent";
 
 function showView(view) {
   settingsView.hidden = view !== "settings";
   workbenchView.hidden = view !== "workbench";
+}
+
+function isReadyAgent(executor) {
+  return Boolean(executor.name.trim() && executor.command.trim());
 }
 
 function addExecutorRow(executor = {}) {
@@ -45,6 +54,36 @@ function fillForm(config) {
   }
 }
 
+function renderAgentRoster(config) {
+  agentSelect.replaceChildren();
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = AGENT_PLACEHOLDER;
+  agentSelect.appendChild(placeholder);
+  for (const executor of config.executors || []) {
+    const name = executor.name.trim();
+    if (!name) {
+      continue;
+    }
+    const option = document.createElement("option");
+    option.value = name;
+    if (isReadyAgent(executor)) {
+      option.textContent = name;
+    } else {
+      option.textContent = `${name}（待接入）`;
+      option.disabled = true;
+    }
+    agentSelect.appendChild(option);
+  }
+  agentSelect.value = "";
+}
+
+function resetTaskForm() {
+  agentSelect.value = "";
+  taskText.value = "";
+  artifactName.value = "";
+}
+
 function readExecutors() {
   return Array.from(executorsRoot.querySelectorAll("[data-executor]")).map((row) => {
     const argsText = row.querySelector('[data-field="args"]').value.trim();
@@ -75,6 +114,7 @@ function readForm() {
 function applyState(state) {
   showView(state.view);
   fillForm(state.config);
+  renderAgentRoster(state.config);
   backButton.hidden = !state.complete;
 }
 
@@ -97,6 +137,10 @@ document.getElementById("open-settings").addEventListener("click", async () => {
 
 backButton.addEventListener("click", async () => {
   applyState(await window.pat.showWorkbench());
+});
+
+document.getElementById("new-task").addEventListener("click", () => {
+  resetTaskForm();
 });
 
 boot();
