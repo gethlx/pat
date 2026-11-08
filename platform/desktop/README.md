@@ -44,3 +44,17 @@ xvfb-run --auto-servernum npm test
 配齐配置后，工作台提供 Agent 下拉、多行任务文本、预期结果文件名（占位 `result.md`）和「派活」按钮。新任务默认显示「请选择 Agent」，不预选任何实例。有名称且可执行文件路径非空的实例可选；只有名称、尚无路径的实例可见但禁用，并旁注「待接入」。「新建任务」清空表单，Agent 回到「请选择 Agent」。最近任务为空，以及没有选中且没有进行中任务时，当前任务显示「还没有任务。选一个 Agent，写下任务后点派活。」
 
 主进程用一份进程拉起实现（工作目录、完整路径、超时、异步采集 stdout/stderr）调用配置里的 `pat-ledger`，并传入 `--ledger`。进入设置或工作台时接通 `ready` 探针；未配置路径或账本无效时把错误显示在设置或表单，不创建默认 checkout。指向设计仓工作副本时，窗口会显示引擎返回的两仓不得混用原因。`claim` / `complete` / `release` 与探针共用这一入口。用户明确选择 Agent 并点「派活」后，主进程调用 `pat-ledger claim --source-ref desktop:<UUID>`，领取成功后再用同一套进程拉起所选执行命令。假执行器成功后调用 `complete`，窗口按读回结果显示待同步或已完成。「停止」结束本次进程组并保留输出，任务进入待核对；「放回待领取」调用 `release`；原任务被选中且已释放时出示「重派」，沿用原来的 `desktop:<UUID>` 与任务编号。进行中只能有一条任务，此时「派活」禁用；一次派活成功后表单回到「请选择 Agent」并清空任务文本。「打开产物」与「打开工作目录」文案分开。
+
+## 登记真实执行器
+
+设置中的参数支持 JSON 字符串数组。可在参数数组中使用 `{prompt}`、`{workdir}`、`{artifact}`，每个占位符占一项。`{prompt}` 包含本次任务正文和预期结果文件名。例如，登记已经登录的 Codex CLI 时填写其完整路径，参数可用：
+
+```json
+["exec", "--ephemeral", "--skip-git-repo-check", "--sandbox", "workspace-write", "{prompt}"]
+```
+
+每次执行使用新目录。兼容以工作目录为末尾参数的既有脚本，任务也会写入目录下的 `.pat-request.txt`。停止和重派保留旧目录。窗口重开时从指定 checkout 的提交及最近一次远端读回恢复任务，未确认的变更可在原任务上继续同步。
+
+## macOS 测试包
+
+GitHub Actions 的 PAT Phase One 检查在 macOS 构建机生成 Apple Silicon 测试包，附件名称为 `PAT-macOS-arm64-test`。包内有账本引擎及所需 Python，用户在设置中指定私有账本的独立 checkout、执行目录及已登录的 Agent。测试包使用临时签名，供 Finder 真机测试。源码窗口测试、构建通过与两个真实 Agent 的正式验收分别记录。

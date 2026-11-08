@@ -7,88 +7,17 @@
       content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
     />
     <title>PAT</title>
-    <style>
-      body {
-        font-family: system-ui, sans-serif;
-        margin: 0;
-      }
-      h1,
-      h2 {
-        font-size: 1.25rem;
-        margin: 0 0 1rem;
-      }
-      h2 {
-        font-size: 1.1rem;
-        margin-top: 1.5rem;
-      }
-      .engine-status[data-ok="false"] {
-        color: #a40000;
-      }
-      .engine-status[data-ok="true"] {
-        color: #0b6b0b;
-      }
-      label {
-        display: grid;
-        gap: 0.25rem;
-        margin-bottom: 0.75rem;
-      }
-      input,
-      textarea,
-      select {
-        padding: 0.35rem 0.5rem;
-      }
-      textarea {
-        min-height: 6em;
-      }
-      .toolbar {
-        display: flex;
-        gap: 0.5rem;
-        padding: 0.75rem 1.25rem;
-        border-bottom: 1px solid #ddd;
-      }
-      main,
-      #view-settings {
-        padding: 1.25rem;
-      }
-      .executor {
-        display: grid;
-        gap: 0.5rem;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        margin-bottom: 1rem;
-        padding: 0.75rem;
-        border: 1px solid #ddd;
-      }
-      .actions {
-        display: flex;
-        gap: 0.5rem;
-        margin-top: 1rem;
-      }
-      #current-task-output {
-        white-space: pre-wrap;
-        background: #f6f6f6;
-        padding: 0.75rem;
-      }
-      #recent-task-list {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-      }
-      #recent-task-list button {
-        display: block;
-        width: 100%;
-        text-align: left;
-        margin-bottom: 0.5rem;
-      }
-    </style>
+    <link rel="stylesheet" href="workbench.css" />
   </head>
   <body>
     <div id="view-settings" data-view="settings" hidden>
-      <h1>设置</h1>
+      <h1>工作台设置</h1>
+      <p class="muted">选择独立账本和工作目录，再登记已登录的执行器。</p>
       <p id="settings-engine-status" class="engine-status" role="status" hidden></p>
       <form id="settings-form">
-        <label>账本路径 <input id="ledgerPath" name="ledgerPath" /></label>
+        <label>账本路径 <span class="directory"><input id="ledgerPath" name="ledgerPath" /><button type="button" data-directory="ledgerPath">选择账本</button></span></label>
         <label>pat-ledger 路径 <input id="patLedgerPath" name="patLedgerPath" /></label>
-        <label>工作目录 <input id="workDir" name="workDir" /></label>
+        <label>工作目录 <span class="directory"><input id="workDir" name="workDir" /><button type="button" data-directory="workDir">选择目录</button></span></label>
         <label>git 路径 <input id="gitPath" name="gitPath" /></label>
         <label>Git 用户名 <input id="gitUserName" name="gitUserName" /></label>
         <label>Git 邮箱 <input id="gitUserEmail" name="gitUserEmail" /></label>
@@ -103,13 +32,18 @@
     </div>
     <div id="view-workbench" data-view="workbench" hidden>
       <header class="toolbar">
+        <div class="brand"><b aria-hidden="true">P</b><div><strong>PAT</strong><small>个人 Agent 工作台</small></div></div>
+        <div class="toolbar-actions">
         <button type="button" id="new-task">新建任务</button>
         <button type="button" id="open-settings">设置</button>
+        </div>
       </header>
       <main>
         <section id="task-form-section" aria-label="任务表单">
-          <h1>工作台</h1>
+          <h1>派发任务</h1>
+          <p class="muted">手动选择一位 Agent。执行结果由同一份账本记录。</p>
           <p id="engine-status" class="engine-status" role="status" hidden></p>
+          <p id="history-error" class="error" role="alert"></p>
           <form id="task-form">
             <label>Agent
               <select id="agent-select" name="agent">
@@ -122,17 +56,21 @@
             <label>预期结果文件名
               <input id="artifact-name" name="artifact" placeholder="result.md" />
             </label>
-            <button type="button" id="dispatch-task">派活</button>
+            <button type="button" id="dispatch-task" class="primary">派活</button>
           </form>
         </section>
         <section id="current-task" aria-label="当前任务">
           <h2>当前任务</h2>
-          <p id="current-task-empty">还没有任务。选一个 Agent，写下任务后点派活。</p>
+          <p id="current-task-busy" role="status" hidden></p>
+          <p id="current-task-empty" class="empty">还没有任务。选一个 Agent，写下任务后点派活。</p>
           <div id="current-task-detail" hidden>
-            <p id="current-task-id"></p>
-            <p id="current-task-status"></p>
+            <div class="task-heading">
+              <strong id="current-task-owner"></strong>
+              <span id="current-task-status" class="status"></span>
+            </div>
+            <p id="current-task-id" class="task-id"></p>
             <p id="current-task-goal"></p>
-            <pre id="current-task-output"></pre>
+            <p id="current-task-reason" class="muted"></p>
             <div id="current-task-actions" class="actions">
               <button type="button" id="stop-task">停止</button>
               <button type="button" id="confirm-task" hidden>确认完成并记账</button>
@@ -142,13 +80,17 @@
               <button type="button" id="open-artifact">打开产物</button>
               <button type="button" id="open-workdir">打开工作目录</button>
             </div>
-            <p id="artifact-path"></p>
-            <p id="workdir-path"></p>
+            <details id="task-details">
+              <summary>执行详情</summary>
+              <pre id="current-task-output"></pre>
+              <p id="artifact-path"></p>
+              <p id="workdir-path"></p>
+            </details>
           </div>
         </section>
         <section id="recent-tasks" aria-label="最近任务">
           <h2>最近任务</h2>
-          <p id="recent-tasks-empty">还没有任务。选一个 Agent，写下任务后点派活。</p>
+          <p id="recent-tasks-empty" class="empty">还没有任务。选一个 Agent，写下任务后点派活。</p>
           <ul id="recent-task-list"></ul>
         </section>
       </main>

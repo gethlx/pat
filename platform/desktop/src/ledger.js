@@ -50,6 +50,10 @@ function ready(options) {
   return runLedger({ ...options, args: ["ready"] });
 }
 
+function history(options) {
+  return runLedger({ ...options, args: ["history"] });
+}
+
 function claim(options, extraArgs = []) {
   return runLedger({ ...options, args: ["claim", ...extraArgs] });
 }
@@ -65,6 +69,7 @@ function release(options, extraArgs = []) {
 module.exports = {
   runLedger,
   ready,
+  history,
   claim,
   complete,
   release,

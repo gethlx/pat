@@ -1,8 +1,10 @@
 const { randomUUID } = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
-const { claim, complete, release } = require("./ledger");
+const { claim, complete, history, release } = require("./ledger");
 const { startProcess } = require("./process");
+const { isLaunchableExecutor } = require("./config");
+const { createAttempt, restoreAttempt, validArtifactName, verifiedArtifact } = require("./task-files");
 
 function parseLedgerJson(stdout) {
   const text = String(stdout || "").trim();
@@ -30,8 +32,6 @@ function ledgerOptions(config) {
   };
 }
 
-const TASK_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
-
 function locatePath(target) {
   const resolved = path.resolve(String(target));
   try {
@@ -57,7 +57,7 @@ function pathsConflict(ledgerPath, workDir) {
 
 function findExecutor(config, name) {
   return (config.executors || []).find(
-    (item) => item.name.trim() === name && item.command.trim(),
+    (item) => item.name.trim() === name && isLaunchableExecutor(item),
   );
 }
 
@@ -85,6 +85,7 @@ function publicTask(task) {
     artifactName: task.artifactName,
     workDir: task.workDir,
     status: task.status,
+    reason: task.reason,
     stdout: task.stdout,
     stderr: task.stderr,
     output: combinedOutput(task),
@@ -123,21 +124,54 @@ function createSession() {
     return { ...snapshot(), ok: false, error: message };
   }
 
-  function ensureTaskDir(base, taskId) {
-    if (!TASK_ID.test(String(taskId || "")) || String(taskId).includes("..")) {
-      throw new Error("任务编号不合法");
+  async function restore(config) {
+    const result = await history(ledgerOptions(config));
+    const payload = parseLedgerJson(result.stdout);
+    if (!result.ok || !Array.isArray(payload?.tasks)) {
+      return result.stderr || result.error || "无法读取账本历史";
     }
-    const root = locatePath(base);
-    const dir = path.resolve(root, taskId);
-    const relative = path.relative(root, dir);
-    if (relative.startsWith("..") || path.isAbsolute(relative)) {
-      throw new Error("任务目录越界");
-    }
-    fs.mkdirSync(dir, { recursive: true });
-    return dir;
+    tasks.splice(0, tasks.length, ...payload.tasks.map((row) => {
+      const task = {
+        id: row.id,
+        sourceRef: row.source_ref,
+        goal: row.goal,
+        owner: row.owner,
+        artifactName: "result.md",
+        ...restoreAttempt(config.workDir, row),
+      };
+      if (row.pending) {
+        task.status = "pending-sync";
+        task.pendingAction = { done: "complete", inbox: "release", claimed: "claim" }[row.bucket];
+        task.reason = "这笔账本变更尚未确认，继续同步不会重新执行。";
+      } else if (row.bucket === "done") {
+        task.status = "completed";
+        task.reference = row.artifacts?.[0];
+        task.artifactPath = verifiedArtifact(config.ledgerPath, task.id, task.reference);
+        if (!task.artifactPath) task.reason = "账本产物在本机缺失或校验不符。";
+      } else if (row.bucket === "inbox") {
+        task.status = "released";
+      } else {
+        task.status = "review";
+        task.reason = Date.parse(row.deadline) < Date.now()
+          ? "任务已逾期。请核对原执行与现有产物。"
+          : "上次领取尚无完成记录。请核对原执行是否已停止。";
+      }
+      if (task.workDir) {
+        try {
+          const logs = JSON.parse(fs.readFileSync(path.join(task.workDir, ".pat-output.json"), "utf8"));
+          task.stdout = logs.stdout;
+          task.stderr = logs.stderr;
+        } catch {
+          // The process may have stopped before its final log was saved.
+        }
+      }
+      return task;
+    }));
+    selectedId = (tasks.find((task) => ["review", "pending-sync"].includes(task.status)) || tasks[0])?.id ?? null;
+    return "";
   }
 
-  function applyCompleteResult(task, finished) {
+  function applyCompleteResult(config, task, finished) {
     const payload = parseLedgerJson(finished.stdout);
     if (payload && (payload.status === "completed" || payload.status === "pending-sync")) {
       task.status = payload.status;
@@ -145,14 +179,18 @@ function createSession() {
       if (payload.status === "pending-sync" && payload.error) {
         task.stderr = [task.stderr, payload.error].filter(Boolean).join("\n");
       }
-      const localArtifact = path.join(task.workDir, task.artifactName);
-      if (fs.existsSync(localArtifact)) {
-        task.artifactPath = localArtifact;
-      }
+      task.reference = payload.artifacts?.[0];
+      task.artifactPath = payload.status === "completed"
+        ? verifiedArtifact(config.ledgerPath, task.id, task.reference)
+        : "";
+      task.reason = payload.status === "pending-sync"
+        ? "产物已记录，等待账本远端确认。"
+        : task.artifactPath ? "" : "账本产物在本机缺失或校验不符。";
       return true;
     }
     task.status = "review";
     task.pendingAction = "";
+    task.reason = "记账未完成，请查看执行详情。";
     task.stderr = [task.stderr, finished.stderr, payload && payload.error]
       .filter(Boolean)
       .join("\n");
@@ -169,9 +207,22 @@ function createSession() {
       notify();
       return;
     }
+    const prompt = `请按以下任务在当前工作目录中写入 ${JSON.stringify(task.artifactName)}，作为可核对的文本结果。
+
+${task.goal}`;
+    const values = new Map([
+      ["{prompt}", prompt],
+      ["{workdir}", task.workDir],
+      ["{artifact}", task.artifactName],
+    ]);
+    const args = executor.args.map((arg) => values.get(arg) ?? arg);
+    if (!executor.args.some((arg) => values.has(arg))) {
+      args.push(task.workDir);
+    }
+    fs.writeFileSync(path.join(task.workDir, ".pat-request.txt"), prompt, { flag: "wx", mode: 0o600 });
     const handle = startProcess({
       command: executor.command,
-      args: [...executor.args, task.workDir],
+      args,
       cwd: task.workDir,
       requireCwd: true,
       timeout: timeoutMs(executor),
@@ -183,6 +234,7 @@ function createSession() {
     });
     runningHandle = handle;
     task.status = "running";
+    task.reason = "";
     task.pendingAction = "";
     task.stopped = false;
     busy = true;
@@ -191,10 +243,21 @@ function createSession() {
     if (runningHandle === handle) {
       runningHandle = null;
     }
-    busy = false;
     task.stdout = result.stdout || "";
     task.stderr = result.stderr || "";
+    try {
+      fs.writeFileSync(path.join(task.workDir, ".pat-output.json"), JSON.stringify({
+        code: result.code, signal: result.signal, stdout: task.stdout, stderr: task.stderr,
+      }), { flag: "wx", mode: 0o600 });
+    } catch {
+      // Keep the in-memory log even when the working directory cannot be written.
+    }
     if (task.stopped || !result.ok) {
+      busy = false;
+      task.reason = task.stopped
+        ? "执行已停止，现场文件已保留。"
+        : result.timedOut ? "执行超时，请检查现场文件。"
+          : `执行未成功${result.code == null ? "" : `（退出码 ${result.code}）`}。`;
       task.status = "review";
       notify();
       return;
@@ -207,7 +270,8 @@ function createSession() {
       "--artifact",
       task.artifactName,
     ]);
-    applyCompleteResult(task, finished);
+    applyCompleteResult(config, task, finished);
+    busy = false;
     notify();
   }
 
@@ -244,7 +308,7 @@ function createSession() {
     }
     let workDir;
     try {
-      workDir = ensureTaskDir(config.workDir, payload.id);
+      workDir = createAttempt(config.workDir, { id: payload.id, sourceRef, artifactName });
     } catch (err) {
       task.sourceRef = sourceRef;
       task.goal = goal;
@@ -279,6 +343,25 @@ function createSession() {
 
   return {
     snapshot,
+    restore,
+    openTarget(config, kind) {
+      const task = current();
+      if (!task) return "";
+      if (kind === "artifact") {
+        return task.status === "completed"
+          ? verifiedArtifact(config.ledgerPath, task.id, task.reference)
+          : "";
+      }
+      const workDir = task.workDir;
+      if (!workDir) return "";
+      try {
+        const root = fs.realpathSync(config.workDir);
+        return isInside(root, workDir) && fs.realpathSync(workDir) === workDir
+          && fs.lstatSync(workDir).isDirectory() ? workDir : "";
+      } catch {
+        return "";
+      }
+    },
     select(id) {
       if (busy) {
         return { ...snapshot(), ok: true };
@@ -307,6 +390,9 @@ function createSession() {
       }
       if (!goal) {
         return fail("请填写任务");
+      }
+      if (!validArtifactName(artifactName)) {
+        return fail("请输入普通文件名，例如 result.md");
       }
       if (!findExecutor(config, owner)) {
         return fail("请选择已接通的 Agent");
@@ -357,10 +443,17 @@ function createSession() {
       if (task.status !== "review" && task.status !== "running") {
         return fail("只有领取中的任务可以放回待领取");
       }
-      const released = await release(ledgerOptions(config), ["--id", task.id]);
+      busy = true;
+      let released;
+      try {
+        released = await release(ledgerOptions(config), ["--id", task.id]);
+      } finally {
+        busy = false;
+      }
       const payload = parseLedgerJson(released.stdout);
       if (payload && payload.status === "released") {
         task.status = "released";
+        task.reason = "";
         task.pendingAction = "";
         task.sourceRef = payload.source_ref || task.sourceRef;
         return { ...snapshot(), ok: true };
@@ -383,7 +476,7 @@ function createSession() {
       if (busy) {
         return fail("已有进行中的任务");
       }
-      if (task.status !== "review") {
+      if (task.status !== "review" || !task.workDir) {
         return fail("只有待核对的任务可以确认完成");
       }
       busy = true;
@@ -397,7 +490,7 @@ function createSession() {
           "--artifact",
           task.artifactName,
         ]);
-        applyCompleteResult(task, finished);
+        applyCompleteResult(config, task, finished);
         response = {
           ok: task.status === "completed",
           error: task.status === "completed" ? undefined : task.stderr || "记账未完成",
@@ -421,7 +514,20 @@ function createSession() {
       busy = true;
       let response;
       try {
-        if (task.pendingAction === "release") {
+        if (task.pendingAction === "claim") {
+          const finished = await claim(ledgerOptions(config), [
+            "--source-ref", task.sourceRef, "--goal", task.goal, "--owner", task.owner,
+          ]);
+          const payload = parseLedgerJson(finished.stdout);
+          if (["claimed", "duplicate"].includes(payload?.status) && payload.bucket === "claimed") {
+            task.status = "review";
+            task.pendingAction = "";
+            task.reason = "领取已同步。请核对原执行，再决定是否放回待领取。";
+            response = { ok: true };
+          } else {
+            response = { ok: false, error: finished.stderr || "领取仍待核对" };
+          }
+        } else if (task.pendingAction === "release") {
           const finished = await release(ledgerOptions(config), ["--id", task.id]);
           const payload = parseLedgerJson(finished.stdout);
           if (payload && payload.status === "released") {
@@ -447,11 +553,11 @@ function createSession() {
             "--id",
             task.id,
             "--workdir",
-            task.workDir,
+            task.workDir || config.workDir,
             "--artifact",
             task.artifactName,
           ]);
-          applyCompleteResult(task, finished);
+          applyCompleteResult(config, task, finished);
           response = {
             ok: task.status === "completed",
             error: task.status === "completed" ? undefined : task.stderr || "待同步",

@@ -1,4 +1,5 @@
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, shell } = require("electron");
+const fs = require("node:fs");
 const path = require("node:path");
 const {
   loadConfig,
@@ -15,7 +16,10 @@ const APP_TITLE = "PAT";
 let configPath = "";
 let currentConfig = normalizeConfig({});
 let currentView = "settings";
-const session = createSession();
+let session = createSession();
+let readiness = null;
+let historyError = "";
+let updatingConfig = false;
 
 if (process.getuid && process.getuid() === 0) {
   app.commandLine.appendSwitch("no-sandbox");
@@ -35,6 +39,7 @@ function getState() {
     view: currentView,
     config: currentConfig,
     complete: isConfigComplete(currentConfig),
+    historyError,
     ...session.snapshot(),
   };
 }
@@ -57,15 +62,28 @@ function probeReady() {
   });
 }
 
-function applyLoadedConfig() {
-  currentConfig = loadConfig(configPath);
-  currentView = isConfigComplete(currentConfig) ? "workbench" : "settings";
+function ledgerDefaults(config) {
+  const bundled = path.join(process.resourcesPath, "pat-ledger", "pat-ledger");
+  return fs.existsSync(bundled)
+    ? { ...config, patLedgerPath: bundled, gitPath: config.gitPath || "/usr/bin/git" }
+    : config;
 }
+
+async function loadWorkbench() {
+  currentView = isConfigComplete(currentConfig) ? "workbench" : "settings";
+  readiness = await probeReady();
+  historyError = readiness.ok && currentView === "workbench"
+    ? await session.restore(currentConfig)
+    : "";
+}
+
 
 function createWindow() {
   const win = new BrowserWindow({
-    width: 900,
-    height: 640,
+    width: 1040,
+    height: 720,
+    minWidth: 580,
+    minHeight: 480,
     title: APP_TITLE,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -88,10 +106,29 @@ ipcMain.handle("pat:getAppTitle", () => APP_TITLE);
 
 ipcMain.handle("pat:getState", () => getState());
 
-ipcMain.handle("pat:saveConfig", (_event, raw) => {
-  currentConfig = saveConfig(configPath, raw);
-  currentView = isConfigComplete(currentConfig) ? "workbench" : "settings";
-  return getState();
+ipcMain.handle("pat:saveConfig", async (_event, raw) => {
+  if (updatingConfig || session.snapshot().busy) return getState();
+  updatingConfig = true;
+  try {
+    currentConfig = ledgerDefaults(saveConfig(configPath, raw));
+    session = createSession();
+    await loadWorkbench();
+    return getState();
+  } finally {
+    updatingConfig = false;
+  }
+});
+
+ipcMain.handle("pat:chooseDirectory", async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const picked = await dialog.showOpenDialog(win, { properties: ["openDirectory"] });
+  return picked.filePaths[0] || "";
+});
+
+ipcMain.handle("pat:openTarget", async (_event, kind) => {
+  if (kind !== "artifact" && kind !== "workdir") return "未知的打开操作。";
+  const target = session.openTarget(currentConfig, kind);
+  return target ? shell.openPath(target) : "文件或目录缺失，或产物校验未通过。";
 });
 
 ipcMain.handle("pat:showSettings", () => {
@@ -106,11 +143,14 @@ ipcMain.handle("pat:showWorkbench", () => {
   return getState();
 });
 
-ipcMain.handle("pat:probeReady", () => probeReady());
+ipcMain.handle("pat:probeReady", () => readiness);
 
-ipcMain.handle("pat:dispatch", (_event, payload) =>
-  session.dispatch(currentConfig, payload, notifyRenderer),
-);
+ipcMain.handle("pat:dispatch", (_event, payload) => {
+  if (updatingConfig || !readiness?.ok || historyError) {
+    return { ...session.snapshot(), ok: false, error: historyError || "请先核对账本设置。" };
+  }
+  return session.dispatch(currentConfig, payload, notifyRenderer);
+});
 
 ipcMain.handle("pat:stop", () => session.stop());
 
@@ -128,9 +168,10 @@ ipcMain.handle("pat:confirmTask", () => session.confirm(currentConfig));
 
 ipcMain.handle("pat:continueSync", () => session.continueSync(currentConfig));
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   configPath = resolveConfigPath();
-  applyLoadedConfig();
+  currentConfig = ledgerDefaults(loadConfig(configPath));
+  await loadWorkbench();
   createWindow();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
