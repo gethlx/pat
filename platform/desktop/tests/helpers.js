@@ -135,6 +135,77 @@ async function makeLedgerSkeleton(dir) {
   return root;
 }
 
+function resolveLedgerPython() {
+  resolvePatLedgerPath();
+  return path.join(ledgerProjectDir(), ".venv", "bin", "python");
+}
+
+function connectLedgerRemote(ledgerRoot) {
+  execFileSync(
+    "git",
+    [
+      "-c",
+      "user.name=PAT Ledger",
+      "-c",
+      "user.email=pat-ledger@users.noreply.github.com",
+      "add",
+      "-A",
+    ],
+    { cwd: ledgerRoot, stdio: "pipe" },
+  );
+  execFileSync(
+    "git",
+    [
+      "-c",
+      "user.name=PAT Ledger",
+      "-c",
+      "user.email=pat-ledger@users.noreply.github.com",
+      "commit",
+      "-m",
+      "init",
+    ],
+    { cwd: ledgerRoot, stdio: "pipe" },
+  );
+  const bare = `${ledgerRoot}-origin.git`;
+  execFileSync("git", ["init", "--bare", "--initial-branch=main", bare], {
+    stdio: "pipe",
+  });
+  execFileSync("git", ["remote", "add", "origin", bare], {
+    cwd: ledgerRoot,
+    stdio: "pipe",
+  });
+  execFileSync("git", ["push", "-u", "origin", "main"], {
+    cwd: ledgerRoot,
+    stdio: "pipe",
+  });
+  return bare;
+}
+
+function fakeExecutorConfig() {
+  return {
+    name: "fake",
+    command: resolveLedgerPython(),
+    args: ["-m", "pat_ledger.fake_executor"],
+    timeout: 30,
+    mode: "push",
+    invoke: "cli",
+  };
+}
+
+function sleeperExecutorConfig() {
+  return {
+    name: "slow",
+    command: resolveLedgerPython(),
+    args: [
+      "-c",
+      "import sys,time; sys.stdout.write('started\\n'); sys.stdout.flush(); time.sleep(60)",
+    ],
+    timeout: 90,
+    mode: "push",
+    invoke: "cli",
+  };
+}
+
 module.exports = {
   launchApp,
   makeTempDir,
@@ -144,5 +215,9 @@ module.exports = {
   emptyConfig,
   designRepoRoot,
   resolvePatLedgerPath,
+  resolveLedgerPython,
   makeLedgerSkeleton,
+  connectLedgerRemote,
+  fakeExecutorConfig,
+  sleeperExecutorConfig,
 };

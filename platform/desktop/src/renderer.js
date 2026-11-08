@@ -5,8 +5,21 @@ const backButton = document.getElementById("back-to-workbench");
 const agentSelect = document.getElementById("agent-select");
 const taskText = document.getElementById("task-text");
 const artifactName = document.getElementById("artifact-name");
+const dispatchButton = document.getElementById("dispatch-task");
+const stopButton = document.getElementById("stop-task");
+const releaseButton = document.getElementById("release-task");
+const redispatchButton = document.getElementById("redispatch-task");
+const openArtifactButton = document.getElementById("open-artifact");
+const openWorkdirButton = document.getElementById("open-workdir");
 
 const AGENT_PLACEHOLDER = "请选择 Agent";
+const STATUS_LABELS = {
+  running: "进行中",
+  review: "待核对",
+  released: "待领取",
+  "pending-sync": "待同步",
+  completed: "已完成",
+};
 
 function showView(view) {
   settingsView.hidden = view !== "settings";
@@ -115,7 +128,59 @@ function applyState(state) {
   showView(state.view);
   fillForm(state.config);
   renderAgentRoster(state.config);
+  renderTasks(state);
   backButton.hidden = !state.complete;
+}
+
+function applyTasks(state) {
+  renderTasks(state);
+  if (state.error) {
+    showEngineStatus({ ok: false, stderr: state.error });
+  }
+}
+
+function statusLabel(status) {
+  return STATUS_LABELS[status] || status || "";
+}
+
+function renderTasks(state) {
+  const current = state.currentTask;
+  const detail = document.getElementById("current-task-detail");
+  const emptyCurrent = document.getElementById("current-task-empty");
+  const hasCurrent = Boolean(current);
+  emptyCurrent.hidden = hasCurrent;
+  detail.hidden = !hasCurrent;
+  dispatchButton.disabled = Boolean(state.busy);
+  if (hasCurrent) {
+    document.getElementById("current-task-id").textContent = current.id || "";
+    document.getElementById("current-task-status").textContent = statusLabel(current.status);
+    document.getElementById("current-task-goal").textContent = current.goal || "";
+    document.getElementById("current-task-output").textContent = current.output || "";
+    document.getElementById("artifact-path").textContent = current.artifactPath || "";
+    document.getElementById("workdir-path").textContent = current.workDir || "";
+    stopButton.hidden = current.status !== "running";
+    releaseButton.hidden = current.status !== "review";
+    redispatchButton.hidden = current.status !== "released";
+    openArtifactButton.hidden = !current.artifactPath;
+    openWorkdirButton.hidden = !current.workDir;
+  }
+  const recent = state.recentTasks || [];
+  const recentEmpty = document.getElementById("recent-tasks-empty");
+  const list = document.getElementById("recent-task-list");
+  recentEmpty.hidden = recent.length > 0;
+  list.replaceChildren();
+  for (const task of recent) {
+    const item = document.createElement("li");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.taskId = task.id;
+    button.textContent = `${task.id} ${statusLabel(task.status)}`;
+    button.addEventListener("click", async () => {
+      applyTasks(await window.pat.selectTask(task.id));
+    });
+    item.appendChild(button);
+    list.appendChild(item);
+  }
 }
 
 function showEngineStatus(result) {
@@ -161,6 +226,34 @@ backButton.addEventListener("click", async () => {
 
 document.getElementById("new-task").addEventListener("click", () => {
   resetTaskForm();
+});
+
+dispatchButton.addEventListener("click", async () => {
+  const result = await window.pat.dispatch({
+    owner: agentSelect.value,
+    goal: taskText.value,
+    artifactName: artifactName.value,
+  });
+  applyTasks(result);
+  if (result.ok) {
+    resetTaskForm();
+  }
+});
+
+stopButton.addEventListener("click", async () => {
+  applyTasks(await window.pat.stopTask());
+});
+
+releaseButton.addEventListener("click", async () => {
+  applyTasks(await window.pat.releaseTask());
+});
+
+redispatchButton.addEventListener("click", async () => {
+  applyTasks(await window.pat.redispatch());
+});
+
+window.pat.onState((state) => {
+  applyTasks(state);
 });
 
 boot();

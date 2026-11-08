@@ -59,6 +59,7 @@ function startProcess({
   cwd,
   timeout = 30_000,
   env: extraEnv,
+  onOutput,
 } = {}) {
   let settled = false;
   let timedOut = false;
@@ -110,9 +111,15 @@ function startProcess({
   child.stderr.setEncoding("utf8");
   child.stdout.on("data", (chunk) => {
     stdout += chunk;
+    if (onOutput) {
+      onOutput({ stdout, stderr });
+    }
   });
   child.stderr.on("data", (chunk) => {
     stderr += chunk;
+    if (onOutput) {
+      onOutput({ stdout, stderr });
+    }
   });
 
   if (timeout > 0) {

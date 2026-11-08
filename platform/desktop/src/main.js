@@ -8,12 +8,14 @@ const {
   readConfigFlag,
 } = require("./config");
 const { ready } = require("./ledger");
+const { createSession } = require("./dispatch");
 
 const APP_TITLE = "PAT";
 
 let configPath = "";
 let currentConfig = normalizeConfig({});
 let currentView = "settings";
+const session = createSession();
 
 if (process.getuid && process.getuid() === 0) {
   app.commandLine.appendSwitch("no-sandbox");
@@ -33,7 +35,17 @@ function getState() {
     view: currentView,
     config: currentConfig,
     complete: isConfigComplete(currentConfig),
+    ...session.snapshot(),
   };
+}
+
+function notifyRenderer() {
+  const state = getState();
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) {
+      win.webContents.send("pat:state", state);
+    }
+  }
 }
 
 function probeReady() {
@@ -95,6 +107,20 @@ ipcMain.handle("pat:showWorkbench", () => {
 
 ipcMain.handle("pat:probeReady", () => probeReady());
 
+ipcMain.handle("pat:dispatch", (_event, payload) =>
+  session.dispatch(currentConfig, payload, notifyRenderer),
+);
+
+ipcMain.handle("pat:stop", () => session.stop());
+
+ipcMain.handle("pat:release", () => session.release(currentConfig));
+
+ipcMain.handle("pat:redispatch", () =>
+  session.redispatch(currentConfig, notifyRenderer),
+);
+
+ipcMain.handle("pat:selectTask", (_event, id) => session.select(id));
+
 app.whenReady().then(() => {
   configPath = resolveConfigPath();
   applyLoadedConfig();
@@ -104,6 +130,10 @@ app.whenReady().then(() => {
       createWindow();
     }
   });
+});
+
+app.on("before-quit", () => {
+  session.shutdown();
 });
 
 app.on("window-all-closed", () => {
