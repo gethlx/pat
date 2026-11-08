@@ -2,7 +2,7 @@
 
 > 状态：现行项目说明与总导航
 > 维护线：两线共有
-> 最后更新：2026-11-07
+> 最后更新：2026-11-08
 > 摘要：PAT 跨厂商 Agent 治理与共享记忆的工作仓，提供已冻结的 v2 蓝图、节点裁定与评审材料入口。
 
 ## 这是什么
@@ -68,6 +68,7 @@ Meta 用 Confidential VM / Private processing 把用户自己采集的数据锁�
 | [维护规范](AGENTS.md) | 分区、写入、提交及公开边界 |
 | [整体线目录](platform/README.md) | 蓝图、节点部署与验收、设计采收和评审材料 |
 | [执行蓝图 v2](platform/architecture-v2.md) | **当前唯一执行蓝图**：跨厂商 Agent 治理、双模接入、Git 记忆基座、宰相席位制。2026-11-07 冻结 |
+| [阶段一实施规划](platform/phase-one-guide.md) | macOS 单窗口。用户选择 Agent、派活和打开结果。入口于 2026-11-08 裁定 |
 | [硬件阶段参考 v1](platform/architecture-v1.md) · [可视化](platform/architecture-viz.html) | 采集与固件原则继续有效；Agent 层与工作记忆层已由 v2 取代 |
 | [DSH 部署验收及用户裁定](platform/dsh-deployment-verdict.md) | §5 已裁定可用；节点执行记录见整体线目录 |
 | [整体线升级评审](platform/reviews/2026-11-06-architecture-upgrade-report.md) | 2026-11-06：多通道、多 Agent、恢复与数据边界；草稿待裁定 |
@@ -83,7 +84,7 @@ Meta 用 Confidential VM / Private processing 把用户自己采集的数据锁�
 
 - 整体架构 v2 于 2026-11-07 经用户裁定冻结，为整体线唯一执行蓝图。v1 为硬件与采集阶段参考。
 - VPS 节点：Hermes 阶段一已关闭并封存退役；DSH 已部署，用户于 2026-10-29 裁定可用，依据为[验收结论 §5](platform/dsh-deployment-verdict.md)。这是已记录的验收结论，当前在线版本与能力须以现场核验为准。
-- 整体协作升级：任务领取、逾期人工复核、事件重建和记忆确认规则已纳入 v2。下一步按阶段一验证脚本派活、真实产物与账本。
+- 整体协作升级：任务领取、逾期人工复核、事件重建和记忆确认规则已纳入 v2。阶段一按桌面版裁定验证手动选人派活、真实产物与账本。
 - 共享记忆子项目：2026-10-26 已完成首次同步；需求基准已冻结，蓝图 v0.2 及 2026-11-05 评审意见仍待裁定，详见[区内状态](memory/README.md)。
 - 硬件采集、数据层全量建设和开放显示继续保持探索节奏。Muse 接入 Demo 属于 v1 的硬件参考路径，仍待验证。
 

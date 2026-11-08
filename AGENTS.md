@@ -119,7 +119,7 @@
 - 整体线：**架构 v2 于 2026-11-07 经用户裁定冻结，为当前唯一执行蓝图**，见 [architecture-v2.md](platform/architecture-v2.md)：跨厂商 Agent 组织治理——协调面（调度＋记忆治理）、推/拉双模接入、Git 作短期协调与记忆基座、宰相席位可换、手机为默认终端。
 - 架构 v1（2026-10-17）降为**硬件与采集阶段参考**：采集/固件原则继续有效，Agent 层与工作记忆层形态已由 v2 取代。
 - VPS 云端节点：Hermes 已关闭并封存退役；DSH 已部署且经用户 2026-10-29 裁定可用，见 [验收结论 §5](platform/dsh-deployment-verdict.md)；历史执行过程见 [部署报告](platform/hermes-dsh-execution-report.md)。这些是已记录的决定与验收，不替代当前运行状态核验。硬件采集与数据层全量建设保持探索节奏。
-- 当前优先项（v2 落地）：按蓝图阶段一做自建脚本壳、指定执行器派活与账本验收。Grok Bot 云电脑访问私密仓的前提已验通，拉模式闭环按阶段三验收。
+- 当前优先项（v2 落地）：做自建桌面壳、手动选人派活与账本验收。2026-11-08 用户裁定阶段一采用 macOS 单窗口，至少接通两个真实 Agent，每次由用户手动选一位。阶段一入口及对应验收以 [实施规划](platform/phase-one-guide.md) 为准，取代 v2 的脚本命令入口描述。Grok Bot 云电脑访问私密仓的前提已验通，拉模式闭环按阶段三验收。
 - 整体协作升级评审：[2026-11-06 评审与升级建议](platform/reviews/2026-11-06-architecture-upgrade-report.md)已成稿；[两线综合评审 v2](platform/reviews/2026-11-06-two-blueprint-joint-review.md) 的可执行结论已落地为 v2 蓝图；[Agent 家底盘查](platform/reviews/2026-11-06-agent-fleet-inventory.md) 为落地第 0 步产物。
 - 共享记忆子项目：2026-11-06 起并入本项目（原共享记忆线），框架要求见 v2 蓝图 §十一；需求基准已冻结，蓝图 v0.2 与 2026-11-05 独立评审的处置在子项目层继续，入口与状态见 [memory/README.md](memory/README.md)。
 
