@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 import sys
 
+from pat_ledger.checkout import LedgerCheckout, LedgerError
+
 __version__ = "0.1.0"
 
 
@@ -38,4 +40,10 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
+    try:
+        with LedgerCheckout(args.ledger):
+            print("ready")
+    except LedgerError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     return 0
