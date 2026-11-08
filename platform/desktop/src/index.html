@@ -12,17 +12,27 @@
         font-family: system-ui, sans-serif;
         margin: 0;
       }
-      h1 {
+      h1,
+      h2 {
         font-size: 1.25rem;
         margin: 0 0 1rem;
+      }
+      h2 {
+        font-size: 1.1rem;
+        margin-top: 1.5rem;
       }
       label {
         display: grid;
         gap: 0.25rem;
         margin-bottom: 0.75rem;
       }
-      input {
+      input,
+      textarea,
+      select {
         padding: 0.35rem 0.5rem;
+      }
+      textarea {
+        min-height: 6em;
       }
       .toolbar {
         display: flex;
@@ -70,10 +80,35 @@
     </div>
     <div id="view-workbench" data-view="workbench" hidden>
       <header class="toolbar">
+        <button type="button" id="new-task">新建任务</button>
         <button type="button" id="open-settings">设置</button>
       </header>
       <main>
-        <h1>工作台</h1>
+        <section id="task-form-section" aria-label="任务表单">
+          <h1>工作台</h1>
+          <form id="task-form">
+            <label>Agent
+              <select id="agent-select" name="agent">
+                <option value="">请选择 Agent</option>
+              </select>
+            </label>
+            <label>任务
+              <textarea id="task-text" name="goal" rows="6"></textarea>
+            </label>
+            <label>预期结果文件名
+              <input id="artifact-name" name="artifact" placeholder="result.md" />
+            </label>
+            <button type="button" id="dispatch-task">派活</button>
+          </form>
+        </section>
+        <section id="current-task" aria-label="当前任务">
+          <h2>当前任务</h2>
+          <p id="current-task-empty">还没有任务。选一个 Agent，写下任务后点派活。</p>
+        </section>
+        <section id="recent-tasks" aria-label="最近任务">
+          <h2>最近任务</h2>
+          <p id="recent-tasks-empty">还没有任务。选一个 Agent，写下任务后点派活。</p>
+        </section>
       </main>
     </div>
     <script src="renderer.js"></script>
