@@ -41,6 +41,10 @@ jobs:
       - name: Build macOS Finder test app
         if: runner.os == 'macOS'
         run: platform/desktop/build-macos.sh "$RUNNER_TEMP/pat-build"
+      - name: Verify bundled ledger in the packaged window
+        if: runner.os == 'macOS'
+        working-directory: platform/desktop
+        run: node tests/packaged-smoke.cjs "$RUNNER_TEMP/pat-build/PAT.app"
       - uses: actions/upload-artifact@v4
         if: runner.os == 'macOS'
         with:

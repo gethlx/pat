@@ -64,7 +64,7 @@ function probeReady() {
 
 function ledgerDefaults(config) {
   const bundled = path.join(process.resourcesPath, "pat-ledger", "pat-ledger");
-  return app.isPackaged && fs.existsSync(bundled)
+  return fs.existsSync(bundled)
     ? { ...config, patLedgerPath: bundled, gitPath: config.gitPath || "/usr/bin/git" }
     : config;
 }
