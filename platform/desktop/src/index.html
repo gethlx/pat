@@ -63,6 +63,22 @@
         gap: 0.5rem;
         margin-top: 1rem;
       }
+      #current-task-output {
+        white-space: pre-wrap;
+        background: #f6f6f6;
+        padding: 0.75rem;
+      }
+      #recent-task-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      #recent-task-list button {
+        display: block;
+        width: 100%;
+        text-align: left;
+        margin-bottom: 0.5rem;
+      }
     </style>
   </head>
   <body>
@@ -112,10 +128,26 @@
         <section id="current-task" aria-label="当前任务">
           <h2>当前任务</h2>
           <p id="current-task-empty">还没有任务。选一个 Agent，写下任务后点派活。</p>
+          <div id="current-task-detail" hidden>
+            <p id="current-task-id"></p>
+            <p id="current-task-status"></p>
+            <p id="current-task-goal"></p>
+            <pre id="current-task-output"></pre>
+            <div id="current-task-actions" class="actions">
+              <button type="button" id="stop-task">停止</button>
+              <button type="button" id="release-task">放回待领取</button>
+              <button type="button" id="redispatch-task">重派</button>
+              <button type="button" id="open-artifact">打开产物</button>
+              <button type="button" id="open-workdir">打开工作目录</button>
+            </div>
+            <p id="artifact-path"></p>
+            <p id="workdir-path"></p>
+          </div>
         </section>
         <section id="recent-tasks" aria-label="最近任务">
           <h2>最近任务</h2>
           <p id="recent-tasks-empty">还没有任务。选一个 Agent，写下任务后点派活。</p>
+          <ul id="recent-task-list"></ul>
         </section>
       </main>
     </div>
