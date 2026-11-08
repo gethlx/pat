@@ -1,15 +1,5 @@
-const { test, expect, _electron: electron } = require("@playwright/test");
-const path = require("node:path");
-
-const appRoot = path.join(__dirname, "..");
-const electronBinary = require("electron");
-
-function launchApp() {
-  return electron.launch({
-    executablePath: electronBinary,
-    args: [appRoot, "--no-sandbox", "--disable-gpu"],
-  });
-}
+const { test, expect } = require("@playwright/test");
+const { launchApp } = require("./helpers");
 
 test("window title is PAT", async () => {
   const app = await launchApp();

@@ -10,11 +10,72 @@
     <style>
       body {
         font-family: system-ui, sans-serif;
-        margin: 2rem;
+        margin: 0;
+      }
+      h1 {
+        font-size: 1.25rem;
+        margin: 0 0 1rem;
+      }
+      label {
+        display: grid;
+        gap: 0.25rem;
+        margin-bottom: 0.75rem;
+      }
+      input {
+        padding: 0.35rem 0.5rem;
+      }
+      .toolbar {
+        display: flex;
+        gap: 0.5rem;
+        padding: 0.75rem 1.25rem;
+        border-bottom: 1px solid #ddd;
+      }
+      main,
+      #view-settings {
+        padding: 1.25rem;
+      }
+      .executor {
+        display: grid;
+        gap: 0.5rem;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        margin-bottom: 1rem;
+        padding: 0.75rem;
+        border: 1px solid #ddd;
+      }
+      .actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 1rem;
       }
     </style>
   </head>
   <body>
-    <h1>PAT</h1>
+    <div id="view-settings" data-view="settings" hidden>
+      <h1>设置</h1>
+      <form id="settings-form">
+        <label>账本路径 <input id="ledgerPath" name="ledgerPath" /></label>
+        <label>pat-ledger 路径 <input id="patLedgerPath" name="patLedgerPath" /></label>
+        <label>工作目录 <input id="workDir" name="workDir" /></label>
+        <label>git 路径 <input id="gitPath" name="gitPath" /></label>
+        <label>Git 用户名 <input id="gitUserName" name="gitUserName" /></label>
+        <label>Git 邮箱 <input id="gitUserEmail" name="gitUserEmail" /></label>
+        <h2>执行器</h2>
+        <div id="executors"></div>
+        <div class="actions">
+          <button type="button" id="add-executor">添加执行器</button>
+          <button type="submit" id="save-settings">保存</button>
+          <button type="button" id="back-to-workbench" hidden>返回工作台</button>
+        </div>
+      </form>
+    </div>
+    <div id="view-workbench" data-view="workbench" hidden>
+      <header class="toolbar">
+        <button type="button" id="open-settings">设置</button>
+      </header>
+      <main>
+        <h1>工作台</h1>
+      </main>
+    </div>
+    <script src="renderer.js"></script>
   </body>
 </html>
