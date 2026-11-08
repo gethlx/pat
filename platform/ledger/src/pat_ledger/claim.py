@@ -10,6 +10,7 @@ from pat_ledger.events import (
     append_event,
     build_event,
     format_at,
+    require_task_id,
     task_snapshot,
     utc_now,
 )
@@ -66,7 +67,7 @@ def create_and_claim(
 
     moment = utc_now(now)
     at = format_at(moment)
-    assigned_id = task_id or _allocate_task_id(root, moment)
+    assigned_id = require_task_id(task_id or _allocate_task_id(root, moment))
     created_task = task_snapshot(
         id=assigned_id,
         source_ref=source_ref,

@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from pat_ledger.checkout import LedgerCheckout, LedgerError, REQUIRED_DIRS
-from pat_ledger.complete import complete_and_sync, complete_task, release_task
+from pat_ledger.complete import complete_and_sync, complete_task, release_and_sync, release_task
 from pat_ledger.rebuild import rebuild_from_events
 from pat_ledger.sync import claim_and_sync
 
@@ -260,3 +260,210 @@ def test_complete_rejects_symlink_and_does_not_report_completed(tmp_path: Path) 
     assert run_plain_git(ledger_path, "rev-parse", "HEAD").strip() == head
     assert (ledger_path / "tasks" / "claimed" / f"{claimed['id']}.json").is_file()
     assert not (ledger_path / "tasks" / "done" / f"{claimed['id']}.json").exists()
+
+
+def _completed_events(repo: Path) -> list[dict]:
+    path = repo / "events" / "2026-11-08.jsonl"
+    return [
+        json.loads(line)
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line and json.loads(line)["kind"] == "task.completed"
+    ]
+
+
+def test_obvious_secret_artifacts_are_rejected(tmp_path: Path) -> None:
+    ledger_path, _remote = make_git_ledger(tmp_path)
+    workdir = tmp_path / "work"
+    workdir.mkdir()
+    (workdir / "id_rsa").write_bytes(b"\x00\x01not-text")
+    (workdir / "result.md").write_text(
+        "-----BEGIN OPENSSH PRIVATE KEY-----\nabc\n-----END OPENSSH PRIVATE KEY-----\n",
+        encoding="utf-8",
+    )
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    (plain / "result.md").write_text("secret\n", encoding="utf-8")
+    with LedgerCheckout(ledger_path) as ledger:
+        claimed = claim_sample(ledger, "desktop:a5-secret")
+        with pytest.raises(LedgerError, match="密钥"):
+            complete_task(
+                ledger,
+                task_id=claimed["id"],
+                work_dir=workdir,
+                artifact_name="id_rsa",
+                now=FIXED_NOW,
+            )
+        with pytest.raises(LedgerError, match="密钥"):
+            complete_task(
+                ledger,
+                task_id=claimed["id"],
+                work_dir=workdir,
+                artifact_name="result.md",
+                now=FIXED_NOW,
+            )
+        recorded = complete_task(
+            ledger,
+            task_id=claimed["id"],
+            work_dir=plain,
+            now=FIXED_NOW,
+        )
+    assert recorded["status"] == "recorded"
+
+
+def test_workdir_must_stay_outside_the_ledger(tmp_path: Path) -> None:
+    ledger_path, _remote = make_git_ledger(tmp_path)
+    nested = ledger_path / "nested-work"
+    nested.mkdir()
+    (nested / "result.md").write_text("nested\n", encoding="utf-8")
+    (ledger_path / "result.md").write_text("root\n", encoding="utf-8")
+    real = tmp_path / "real-work"
+    real.mkdir()
+    (real / "result.md").write_text("ok\n", encoding="utf-8")
+    link = tmp_path / "link-work"
+    link.symlink_to(real, target_is_directory=True)
+    with LedgerCheckout(ledger_path) as ledger:
+        claimed = claim_sample(ledger, "desktop:a5-workdir")
+        head = run_plain_git(ledger_path, "rev-parse", "HEAD").strip()
+        with pytest.raises(LedgerError, match="分开"):
+            complete_task(ledger, task_id=claimed["id"], work_dir=nested, now=FIXED_NOW)
+        with pytest.raises(LedgerError, match="分开"):
+            complete_task(ledger, task_id=claimed["id"], work_dir=ledger_path, now=FIXED_NOW)
+        with pytest.raises(LedgerError, match="分开"):
+            complete_task(ledger, task_id=claimed["id"], work_dir=link, now=FIXED_NOW)
+    assert run_plain_git(ledger_path, "rev-parse", "HEAD").strip() == head
+    assert (ledger_path / "tasks" / "claimed" / f"{claimed['id']}.json").is_file()
+
+
+def test_cli_complete_pending_sync_then_resume(tmp_path: Path) -> None:
+    ledger_path, remote = make_git_ledger(tmp_path)
+    workdir = tmp_path / "work"
+    with LedgerCheckout(ledger_path) as ledger:
+        claimed = claim_sample(ledger, "desktop:a5-pending")
+    assert run_fake_executor(workdir).returncode == 0
+    missing = tmp_path / "missing.git"
+    subprocess.run(
+        ["git", "-C", str(ledger_path), "remote", "set-url", "origin", str(missing)],
+        check=True,
+    )
+    cli = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pat_ledger",
+            "--ledger",
+            str(ledger_path),
+            "complete",
+            "--id",
+            claimed["id"],
+            "--workdir",
+            str(workdir),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert cli.returncode == 1, cli.stderr
+    payload = json.loads(cli.stdout)
+    assert payload["status"] == "pending-sync"
+    assert (ledger_path / "tasks" / "done" / f"{claimed['id']}.json").is_file()
+    assert len(_completed_events(ledger_path)) == 1
+    head = run_plain_git(ledger_path, "rev-parse", "HEAD")
+    subprocess.run(
+        ["git", "-C", str(ledger_path), "remote", "set-url", "origin", str(remote)],
+        check=True,
+    )
+    with LedgerCheckout(ledger_path) as ledger:
+        again = complete_and_sync(
+            ledger,
+            task_id=claimed["id"],
+            work_dir=workdir,
+            now=FIXED_NOW,
+        )
+    assert again["status"] == "completed"
+    assert run_plain_git(ledger_path, "rev-parse", "HEAD") == head
+    assert len(_completed_events(ledger_path)) == 1
+    show_remote(remote, f"tasks/done/{claimed['id']}.json")
+
+
+def test_release_and_sync_publishes_inbox_and_retries(tmp_path: Path) -> None:
+    ledger_path, remote = make_git_ledger(tmp_path)
+    with LedgerCheckout(ledger_path) as ledger:
+        claimed = claim_sample(ledger, "desktop:a5-relsync")
+    missing = tmp_path / "missing.git"
+    subprocess.run(
+        ["git", "-C", str(ledger_path), "remote", "set-url", "origin", str(missing)],
+        check=True,
+    )
+    with LedgerCheckout(ledger_path) as ledger:
+        pending = release_and_sync(ledger, task_id=claimed["id"], now=FIXED_NOW)
+    assert pending["status"] == "pending-sync"
+    assert (ledger_path / "tasks" / "inbox" / f"{claimed['id']}.json").is_file()
+    head = run_plain_git(ledger_path, "rev-parse", "HEAD")
+    subprocess.run(
+        ["git", "-C", str(ledger_path), "remote", "set-url", "origin", str(remote)],
+        check=True,
+    )
+    with LedgerCheckout(ledger_path) as ledger:
+        again = release_and_sync(ledger, task_id=claimed["id"], now=FIXED_NOW)
+    assert again["status"] == "released"
+    assert run_plain_git(ledger_path, "rev-parse", "HEAD") == head
+    released = [
+        json.loads(line)
+        for line in (ledger_path / "events" / "2026-11-08.jsonl").read_text(encoding="utf-8").splitlines()
+        if line and json.loads(line)["kind"] == "task.released"
+    ]
+    assert len(released) == 1
+    show_remote(remote, f"tasks/inbox/{claimed['id']}.json")
+    absent = subprocess.run(
+        ["git", "--git-dir", str(remote), "cat-file", "-e", f"main:tasks/claimed/{claimed['id']}.json"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert absent.returncode != 0
+
+
+def test_rebuild_rejects_bad_task_id_before_deleting(tmp_path: Path) -> None:
+    ledger_path, _remote = make_git_ledger(tmp_path)
+    with LedgerCheckout(ledger_path) as ledger:
+        claimed = claim_sample(ledger, "desktop:a5-badid")
+    event_path = ledger_path / "events" / "2026-11-08.jsonl"
+    event_path.write_text(
+        event_path.read_text(encoding="utf-8")
+        + json.dumps(
+            {
+                "id": "evt-bad",
+                "kind": "task.created",
+                "data": {"bucket": "inbox", "task": {"id": "../../escaped"}},
+            },
+            ensure_ascii=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    original = (ledger_path / "tasks" / "claimed" / f"{claimed['id']}.json").read_text(encoding="utf-8")
+    with pytest.raises(LedgerError, match="不合法"):
+        rebuild_from_events(ledger_path)
+    assert (ledger_path / "tasks" / "claimed" / f"{claimed['id']}.json").read_text(encoding="utf-8") == original
+    assert list(tmp_path.rglob("escaped.json")) == []
+
+
+def test_rebuild_ignores_bucket_paths_outside_the_ledger(tmp_path: Path) -> None:
+    ledger_path, _remote = make_git_ledger(tmp_path)
+    with LedgerCheckout(ledger_path) as ledger:
+        claimed = claim_sample(ledger, "desktop:a5-badbucket")
+    event_path = ledger_path / "events" / "2026-11-08.jsonl"
+    lines = []
+    for line in event_path.read_text(encoding="utf-8").splitlines():
+        if not line:
+            continue
+        event = json.loads(line)
+        if event["kind"] == "task.claimed":
+            event["data"]["bucket"] = "../../bucket-escaped"
+        lines.append(json.dumps(event, ensure_ascii=False))
+    event_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    rebuilt = rebuild_from_events(ledger_path)
+    assert rebuilt["status"] == "rebuilt"
+    assert (ledger_path / "tasks" / "claimed" / f"{claimed['id']}.json").is_file()
+    assert list(tmp_path.rglob("bucket-escaped")) == []
+    assert list(tmp_path.rglob("bucket-escaped.json")) == []

@@ -1,14 +1,19 @@
 from __future__ import annotations
 
 import json
+import shlex
+import shutil
+import stat
 import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 
 from pat_ledger.checkout import LedgerCheckout, LedgerError, REQUIRED_DIRS
-from pat_ledger.events import task_snapshot
+from pat_ledger.complete import release_task
+from pat_ledger.events import iter_event_records, task_snapshot
 from pat_ledger.gitutil import run_git
 from pat_ledger.sync import claim_and_sync, hard_reset_to_remote
 
@@ -244,3 +249,138 @@ def test_git_helper_rejects_rebase_merge_and_force_push(tmp_path: Path) -> None:
         run_git(work, "push", "--force", "origin", "main")
     with pytest.raises(LedgerError, match="force-push"):
         run_git(work, "push", "-f", "origin", "main")
+    with pytest.raises(LedgerError, match="force-push"):
+        run_git(work, "push", "origin", "+main")
+    with pytest.raises(LedgerError, match="force-push"):
+        run_git(work, "push", "--force-with-lease=refs/heads/main", "origin")
+    pushed = run_git(work, "push", "origin", "HEAD:main")
+    assert pushed.returncode == 0
+
+
+def _claim_kwargs(source_ref: str = "desktop:heal") -> dict:
+    return {
+        "source_ref": source_ref,
+        "goal": "整理",
+        "owner": "exec-a",
+        "now": FIXED_NOW,
+    }
+
+
+def test_unpushed_claim_is_not_reported_as_duplicate(tmp_path: Path) -> None:
+    work, remote = make_git_ledger(tmp_path)
+    missing = tmp_path / "missing.git"
+    subprocess.run(["git", "-C", str(work), "remote", "set-url", "origin", str(missing)], check=True)
+    with LedgerCheckout(work) as ledger:
+        with pytest.raises(LedgerError):
+            claim_and_sync(ledger, **_claim_kwargs())
+    subprocess.run(["git", "-C", str(work), "remote", "set-url", "origin", str(remote)], check=True)
+    with LedgerCheckout(work) as ledger:
+        second = claim_and_sync(ledger, **_claim_kwargs())
+    assert second["status"] == "claimed"
+    show_remote(remote, f"tasks/claimed/{second['id']}.json")
+    claimed = [event for event in iter_event_records(work) if event["kind"] == "task.claimed"]
+    assert len(claimed) == 1
+    assert claimed[0]["id"] == second["event_id"]
+
+
+def test_confirmed_claim_stays_duplicate(tmp_path: Path) -> None:
+    work, _remote = make_git_ledger(tmp_path)
+    with LedgerCheckout(work) as ledger:
+        first = claim_and_sync(ledger, **_claim_kwargs("desktop:dup"))
+        head = run_git(work, "rev-parse", "HEAD").stdout.strip()
+        second = claim_and_sync(ledger, **_claim_kwargs("desktop:dup"))
+    assert first["status"] == "claimed"
+    assert second == {"status": "duplicate", "id": first["id"], "bucket": "claimed"}
+    assert run_git(work, "rev-parse", "HEAD").stdout.strip() == head
+
+
+def test_released_task_with_other_owner_needs_review(tmp_path: Path) -> None:
+    work, _remote = make_git_ledger(tmp_path)
+    with LedgerCheckout(work) as ledger:
+        first = claim_and_sync(ledger, **_claim_kwargs("desktop:owner"))
+        release_task(ledger, task_id=first["id"], now=FIXED_NOW)
+        head = run_git(work, "rev-parse", "HEAD").stdout.strip()
+        review = claim_and_sync(
+            ledger,
+            source_ref="desktop:owner",
+            goal="整理",
+            owner="exec-b",
+            now=FIXED_NOW,
+        )
+    assert review["status"] == "review"
+    assert review["id"] == first["id"]
+    assert run_git(work, "rev-parse", "HEAD").stdout.strip() == head
+    inbox = json.loads((work / "tasks" / "inbox" / f"{first['id']}.json").read_text(encoding="utf-8"))
+    assert inbox["owner"] == "exec-a"
+
+
+def test_reclaim_reuses_task_and_source_but_not_event_id(tmp_path: Path) -> None:
+    work, _remote = make_git_ledger(tmp_path)
+    with LedgerCheckout(work) as ledger:
+        first = claim_and_sync(ledger, **_claim_kwargs("desktop:reclaim"))
+        release_task(ledger, task_id=first["id"], now=FIXED_NOW)
+        second = claim_and_sync(ledger, **_claim_kwargs("desktop:reclaim"))
+        release_task(ledger, task_id=first["id"], now=FIXED_NOW)
+    assert second["status"] == "claimed"
+    assert second["id"] == first["id"]
+    assert second["event_id"] != first["event_id"]
+    ids = [event["id"] for event in iter_event_records(work)]
+    assert len(ids) == len(set(ids))
+    assert len([event_id for event_id in ids if event_id.endswith("-released") or "-released-" in event_id]) == 2
+
+
+def test_claim_rejects_task_id_that_escapes_the_ledger(tmp_path: Path) -> None:
+    work, _remote = make_git_ledger(tmp_path)
+    head = run_plain_git(work, "rev-parse", "HEAD")
+    with LedgerCheckout(work) as ledger:
+        with pytest.raises(LedgerError, match="不合法"):
+            claim_and_sync(
+                ledger,
+                source_ref="desktop:escape",
+                goal="整理",
+                owner="exec-a",
+                task_id="../../../escaped",
+                now=FIXED_NOW,
+            )
+    assert run_plain_git(work, "rev-parse", "HEAD") == head
+    assert list(tmp_path.rglob("escaped.json")) == []
+
+
+def test_optional_git_binary_is_invoked(tmp_path: Path) -> None:
+    git = shutil.which("git")
+    assert git
+    work, _remote = make_git_ledger(tmp_path)
+    log = tmp_path / "git-args.log"
+    wrapper = tmp_path / "git-wrap"
+    wrapper.write_text(
+        "#!/bin/sh\n"
+        f"echo \"$@\" >> {shlex.quote(str(log))}\n"
+        f"exec {shlex.quote(git)} \"$@\"\n",
+        encoding="utf-8",
+    )
+    wrapper.chmod(wrapper.stat().st_mode | stat.S_IEXEC)
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pat_ledger",
+            "--git",
+            str(wrapper),
+            "--ledger",
+            str(work),
+            "claim",
+            "--source-ref",
+            "desktop:gitwrap",
+            "--goal",
+            "整理",
+            "--owner",
+            "exec-a",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "claimed"
+    assert log.read_text(encoding="utf-8").strip()

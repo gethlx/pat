@@ -1,6 +1,5 @@
 const { spawn } = require("node:child_process");
 const fs = require("node:fs");
-const os = require("node:os");
 
 const ALLOWED_ENV_KEYS = [
   "HOME",
@@ -31,22 +30,43 @@ function pickEnv(extra = {}) {
   return env;
 }
 
-function resolveCwd(cwd) {
-  if (cwd && fs.existsSync(cwd) && fs.statSync(cwd).isDirectory()) {
-    return cwd;
+function prepareCwd(cwd, requireCwd) {
+  if (cwd == null || String(cwd).trim() === "") {
+    return { cwd: undefined };
   }
-  return os.tmpdir();
+  let listed;
+  try {
+    listed = fs.lstatSync(cwd);
+  } catch {
+    listed = null;
+  }
+  if (!listed) {
+    if (requireCwd) {
+      return { error: "工作目录不存在或不是普通目录" };
+    }
+    return { cwd: undefined };
+  }
+  if (listed.isSymbolicLink() || !listed.isDirectory()) {
+    if (requireCwd) {
+      return { error: "工作目录不存在或不是普通目录" };
+    }
+    if (listed.isSymbolicLink()) {
+      return { cwd };
+    }
+    return { cwd: undefined };
+  }
+  return { cwd };
 }
 
-function killProcessGroup(child) {
-  if (!child.pid) {
+function killProcessGroup(child, signal) {
+  if (!child || !child.pid) {
     return;
   }
   try {
-    process.kill(-child.pid, "SIGTERM");
+    process.kill(-child.pid, signal);
   } catch {
     try {
-      child.kill("SIGTERM");
+      child.kill(signal);
     } catch {
       // already exited
     }
@@ -60,12 +80,14 @@ function startProcess({
   timeout = 30_000,
   env: extraEnv,
   onOutput,
+  requireCwd = false,
 } = {}) {
   let settled = false;
   let timedOut = false;
   let stdout = "";
   let stderr = "";
   let timer = null;
+  let killTimer = null;
   let child = null;
 
   const finishers = [];
@@ -81,7 +103,49 @@ function startProcess({
     if (timer) {
       clearTimeout(timer);
     }
+    if (killTimer) {
+      clearTimeout(killTimer);
+    }
+    if (child) {
+      child.unref();
+    }
     finishers[0](result);
+  }
+
+  function armEscalation() {
+    if (killTimer || settled || !child) {
+      return;
+    }
+    killTimer = setTimeout(() => {
+      if (settled || !child) {
+        return;
+      }
+      killProcessGroup(child, "SIGKILL");
+      if (child.stdout) {
+        child.stdout.destroy();
+      }
+      if (child.stderr) {
+        child.stderr.destroy();
+      }
+      child.unref();
+      const timeoutNote = `进程超时（${timeout}ms）并已结束进程组`;
+      finish({
+        ok: false,
+        code: null,
+        signal: "SIGKILL",
+        stdout,
+        stderr: timedOut ? [stderr.trim(), timeoutNote].filter(Boolean).join("\n") : stderr,
+        timedOut,
+      });
+    }, 1000);
+  }
+
+  function requestStop() {
+    if (settled || !child) {
+      return;
+    }
+    killProcessGroup(child, "SIGTERM");
+    armEscalation();
   }
 
   if (!command || !String(command).trim()) {
@@ -99,8 +163,24 @@ function startProcess({
     };
   }
 
+  const prepared = prepareCwd(cwd, requireCwd);
+  if (prepared.error) {
+    finish({
+      ok: false,
+      code: null,
+      signal: null,
+      stdout: "",
+      stderr: prepared.error,
+      timedOut: false,
+    });
+    return {
+      done,
+      stop() {},
+    };
+  }
+
   child = spawn(command, args, {
-    cwd: resolveCwd(cwd),
+    cwd: prepared.cwd,
     env: pickEnv(extraEnv),
     stdio: ["ignore", "pipe", "pipe"],
     detached: true,
@@ -125,7 +205,7 @@ function startProcess({
   if (timeout > 0) {
     timer = setTimeout(() => {
       timedOut = true;
-      killProcessGroup(child);
+      requestStop();
     }, timeout);
   }
 
@@ -156,7 +236,7 @@ function startProcess({
   return {
     done,
     stop() {
-      killProcessGroup(child);
+      requestStop();
     },
   };
 }

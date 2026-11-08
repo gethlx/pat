@@ -7,6 +7,8 @@ const taskText = document.getElementById("task-text");
 const artifactName = document.getElementById("artifact-name");
 const dispatchButton = document.getElementById("dispatch-task");
 const stopButton = document.getElementById("stop-task");
+const confirmButton = document.getElementById("confirm-task");
+const syncButton = document.getElementById("sync-task");
 const releaseButton = document.getElementById("release-task");
 const redispatchButton = document.getElementById("redispatch-task");
 const openArtifactButton = document.getElementById("open-artifact");
@@ -159,6 +161,8 @@ function renderTasks(state) {
     document.getElementById("artifact-path").textContent = current.artifactPath || "";
     document.getElementById("workdir-path").textContent = current.workDir || "";
     stopButton.hidden = current.status !== "running";
+    confirmButton.hidden = current.status !== "review" || Boolean(state.busy);
+    syncButton.hidden = current.status !== "pending-sync";
     releaseButton.hidden = current.status !== "review";
     redispatchButton.hidden = current.status !== "released";
     openArtifactButton.hidden = !current.artifactPath;
@@ -224,8 +228,9 @@ backButton.addEventListener("click", async () => {
   await refresh(await window.pat.showWorkbench());
 });
 
-document.getElementById("new-task").addEventListener("click", () => {
+document.getElementById("new-task").addEventListener("click", async () => {
   resetTaskForm();
+  applyTasks(await window.pat.newTask());
 });
 
 dispatchButton.addEventListener("click", async () => {
@@ -242,6 +247,14 @@ dispatchButton.addEventListener("click", async () => {
 
 stopButton.addEventListener("click", async () => {
   applyTasks(await window.pat.stopTask());
+});
+
+confirmButton.addEventListener("click", async () => {
+  applyTasks(await window.pat.confirmTask());
+});
+
+syncButton.addEventListener("click", async () => {
+  applyTasks(await window.pat.continueSync());
 });
 
 releaseButton.addEventListener("click", async () => {

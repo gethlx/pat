@@ -25,7 +25,7 @@ function completeConfig(dir) {
     ledgerPath: path.join(dir, "ledger"),
     patLedgerPath: path.join(dir, "bin", "pat-ledger"),
     workDir: path.join(dir, "work"),
-    gitPath: path.join(dir, "bin", "git"),
+    gitPath: resolveGitPath(),
     gitUserName: "PAT Test",
     gitUserEmail: "pat-test@example.com",
     executors: [
@@ -101,6 +101,15 @@ function designRepoRoot() {
 
 function ledgerProjectDir() {
   return path.join(designRepoRoot(), "platform", "ledger");
+}
+
+let cachedGitPath = "";
+
+function resolveGitPath() {
+  if (!cachedGitPath) {
+    cachedGitPath = execFileSync("which", ["git"], { encoding: "utf8" }).trim();
+  }
+  return cachedGitPath;
 }
 
 let cachedPatLedgerPath = "";
@@ -214,6 +223,7 @@ module.exports = {
   rosterConfig,
   emptyConfig,
   designRepoRoot,
+  resolveGitPath,
   resolvePatLedgerPath,
   resolveLedgerPython,
   makeLedgerSkeleton,

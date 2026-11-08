@@ -3,9 +3,11 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from pathlib import Path
 
 from pat_ledger.checkout import LedgerCheckout, LedgerError
-from pat_ledger.complete import complete_and_sync, release_task
+from pat_ledger.complete import complete_and_sync, release_and_sync
+from pat_ledger.gitutil import reset_git_binary, use_git_binary
 from pat_ledger.rebuild import rebuild_from_events
 from pat_ledger.sync import claim_and_sync
 
@@ -49,6 +51,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--handoff")
     parser.add_argument("--workdir", dest="workdir", help="执行工作目录（与账本 checkout 分开）")
     parser.add_argument("--artifact", dest="artifact", default="result.md")
+    parser.add_argument(
+        "--git",
+        dest="git_path",
+        default=None,
+        help="git 可执行文件路径（可选；不传则使用 PATH 中的 git）",
+    )
     return parser
 
 
@@ -85,7 +93,13 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
+    token = None
     try:
+        if args.git_path:
+            if not Path(args.git_path).is_file():
+                print(f"error: git 可执行文件不存在：{args.git_path}", file=sys.stderr)
+                return 1
+            token = use_git_binary(args.git_path)
         with LedgerCheckout(args.ledger) as ledger:
             if args.command == "ready":
                 print("ready")
@@ -120,9 +134,9 @@ def main(argv: list[str] | None = None) -> int:
             if args.command == "release":
                 if not args.task_id:
                     raise LedgerError("release 需要 --id")
-                result = release_task(ledger, task_id=args.task_id)
+                result = release_and_sync(ledger, task_id=args.task_id)
                 print(json.dumps(result, ensure_ascii=False))
-                return 0
+                return 0 if result["status"] == "released" else 1
             result = rebuild_from_events(ledger.path)
             print(json.dumps(result, ensure_ascii=False))
             return 0
@@ -132,4 +146,7 @@ def main(argv: list[str] | None = None) -> int:
     except json.JSONDecodeError as exc:
         print(f"error: --task-json 无法解析：{exc}", file=sys.stderr)
         return 1
+    finally:
+        if token is not None:
+            reset_git_binary(token)
     return 0

@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from pat_ledger.events import iter_event_records
+from pat_ledger.events import ALLOWED_BUCKETS, iter_event_records, require_task_id
 
 REPLAY_KINDS = {
     "task.created": "inbox",
@@ -15,12 +15,6 @@ REPLAY_KINDS = {
 
 
 def rebuild_from_events(root: Path) -> dict[str, Any]:
-    for bucket in ("inbox", "claimed", "done"):
-        folder = root / "tasks" / bucket
-        if not folder.is_dir():
-            continue
-        for path in folder.glob("*.json"):
-            path.unlink()
     states: dict[str, dict[str, Any]] = {}
     for event in iter_event_records(root):
         kind = event.get("kind")
@@ -29,8 +23,16 @@ def rebuild_from_events(root: Path) -> dict[str, Any]:
         task = event.get("data", {}).get("task")
         if not isinstance(task, dict) or "id" not in task:
             continue
-        bucket = event.get("data", {}).get("bucket") or REPLAY_KINDS[kind]
-        states[task["id"]] = {"bucket": bucket, "task": task}
+        task_id = require_task_id(task["id"])
+        raw_bucket = event.get("data", {}).get("bucket")
+        bucket = raw_bucket if raw_bucket in ALLOWED_BUCKETS else REPLAY_KINDS[kind]
+        states[task_id] = {"bucket": bucket, "task": task}
+    for bucket in ("inbox", "claimed", "done"):
+        folder = root / "tasks" / bucket
+        if not folder.is_dir():
+            continue
+        for path in folder.glob("*.json"):
+            path.unlink()
     rebuilt: list[dict[str, Any]] = []
     for task_id, state in states.items():
         dest = root / "tasks" / state["bucket"] / f"{task_id}.json"
