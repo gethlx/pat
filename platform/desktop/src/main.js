@@ -7,6 +7,7 @@ const {
   isConfigComplete,
   readConfigFlag,
 } = require("./config");
+const { ready } = require("./ledger");
 
 const APP_TITLE = "PAT";
 
@@ -33,6 +34,14 @@ function getState() {
     config: currentConfig,
     complete: isConfigComplete(currentConfig),
   };
+}
+
+function probeReady() {
+  return ready({
+    patLedgerPath: currentConfig.patLedgerPath,
+    ledgerPath: currentConfig.ledgerPath,
+    cwd: currentConfig.workDir,
+  });
 }
 
 function applyLoadedConfig() {
@@ -83,6 +92,8 @@ ipcMain.handle("pat:showWorkbench", () => {
   }
   return getState();
 });
+
+ipcMain.handle("pat:probeReady", () => probeReady());
 
 app.whenReady().then(() => {
   configPath = resolveConfigPath();

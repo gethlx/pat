@@ -118,8 +118,28 @@ function applyState(state) {
   backButton.hidden = !state.complete;
 }
 
+function showEngineStatus(result) {
+  const text = result.ok
+    ? (result.stdout || "ready").trim()
+    : (result.stderr || result.error || "账本调用失败").trim();
+  for (const el of document.querySelectorAll(".engine-status")) {
+    el.hidden = false;
+    el.textContent = text;
+    el.dataset.ok = result.ok ? "true" : "false";
+  }
+}
+
+async function probeReady() {
+  showEngineStatus(await window.pat.probeReady());
+}
+
+async function refresh(state) {
+  applyState(state);
+  await probeReady();
+}
+
 async function boot() {
-  applyState(await window.pat.getState());
+  await refresh(await window.pat.getState());
 }
 
 document.getElementById("add-executor").addEventListener("click", () => {
@@ -128,7 +148,7 @@ document.getElementById("add-executor").addEventListener("click", () => {
 
 document.getElementById("settings-form").addEventListener("submit", async (event) => {
   event.preventDefault();
-  applyState(await window.pat.saveConfig(readForm()));
+  await refresh(await window.pat.saveConfig(readForm()));
 });
 
 document.getElementById("open-settings").addEventListener("click", async () => {
@@ -136,7 +156,7 @@ document.getElementById("open-settings").addEventListener("click", async () => {
 });
 
 backButton.addEventListener("click", async () => {
-  applyState(await window.pat.showWorkbench());
+  await refresh(await window.pat.showWorkbench());
 });
 
 document.getElementById("new-task").addEventListener("click", () => {
